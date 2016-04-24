@@ -32,7 +32,10 @@ The main differences from cmd.Cmd are:
 * Dynamic, automatic prompt based on submenus' names
 * Additional methods (e.g. loop_lines and loop_test)
 * Missing methods (e.g. precmd and postcmd)
+* Uses shlex.split by default
 """
+
+SPLITARGS = _m_shlex.split
 
 
 class DynamicPrompt:
@@ -176,7 +179,7 @@ class _Menu(_Command):
     def run_line(self, cmdline):
         if not cmdline:
             return self.on_empty_line()
-        cmdprefix, *args = _m_shlex.split(cmdline)
+        cmdprefix, *args = SPLITARGS(cmdline)
         return self.run_command(cmdprefix, *args)
 
     def run_command(self, cmdprefix, *args):
@@ -263,7 +266,7 @@ class Alias(_Command):
     """
     def __init__(self, parentmenu, name, alias):
         super().__init__(parentmenu, name, helpfull="Alias <{}>".format(alias))
-        self.alias = _m_shlex.split(alias)
+        self.alias = SPLITARGS(alias)
 
     def execute(self, *args):
         return self.parentmenu.run_command(*self.alias, *args)
