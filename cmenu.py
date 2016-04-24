@@ -202,7 +202,7 @@ class _Menu(_Command):
 
     def on_ambiguous_command(self, cmdmatches, cmdprefix, *args):
         print('Ambiguous command:', cmdprefix,
-              '[' + ','.join(cmdmatches) + ']')
+              '[' + ','.join(cmd.name for cmd in cmdmatches) + ']')
         return False
 
     def help(self, *args):
