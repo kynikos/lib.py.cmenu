@@ -276,9 +276,9 @@ class Action(_Command):
     """
     A command that executes a function.
     """
-    def execute(self, *args):
-        # TODO: Implement
-        raise NotImplementedError()
+    def __init__(self, parentmenu, name, execute, helpfull):
+        super().__init__(parentmenu, name, helpfull)
+        self.execute = execute
 
 
 class Question(_Command):
