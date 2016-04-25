@@ -57,30 +57,21 @@ class DynamicPrompt:
     """
     A _Menu prompt that automatically shows the path of submenus.
     """
-    def __init__(self, prefix='(', separator='>', suffix=') '):
-        self.prefix = prefix
-        self.separator = separator
-        self.suffix = suffix
+    PREFIX = '('
+    SEPARATOR = '>'
+    SUFFIX = ') '
 
-    def associate(self, menu):
+    def __init__(self, menu):
         self.menu = menu
+
         path = [self.menu.name]
         parentmenu = self.menu.parentmenu
         while parentmenu:
             path.append(parentmenu.name)
             parentmenu = parentmenu.parentmenu
-        self.prompt = ''.join((self.prefix,
-                               self.separator.join(reversed(path)),
-                               self.suffix))
-
-    @classmethod
-    def inherit(cls, menu):
-        pprompt = menu.parentmenu.prompt
-        self = cls(prefix=pprompt.prefix,
-                   separator=pprompt.separator,
-                   suffix=pprompt.suffix)
-        self.associate(menu)
-        return self
+        self.prompt = ''.join((self.PREFIX,
+                               self.SEPARATOR.join(reversed(path)),
+                               self.SUFFIX))
 
     def __str__(self):
         return self.prompt
@@ -155,19 +146,23 @@ class _Menu(_Command):
     def __init__(self, parentmenu, name, helpheader, prompt=INHERIT):
         super().__init__(parentmenu, name, helpfull=helpheader)
 
-        if isinstance(prompt, DynamicPrompt):
-            self.prompt = prompt
-            prompt.associate(self)
-        elif prompt is self.INHERIT:
-            if parentmenu:
-                if isinstance(parentmenu.prompt, DynamicPrompt):
-                    self.prompt = DynamicPrompt.inherit(self)
+        try:
+            self.prompt = prompt(self)
+        except TypeError:
+            # Raised if prompt isn't callable, e.g. it's not a DynamicPrompt
+            # class
+            if prompt is self.INHERIT:
+                if parentmenu:
+                    try:
+                        self.prompt = parentmenu.prompt.__class__(self)
+                    except TypeError:
+                        # Raised if prompt isn't callable, e.g. it's not a
+                        # DynamicPrompt # class
+                        self.prompt = parentmenu.prompt
                 else:
-                    self.prompt = parentmenu.prompt
+                    raise InvalidPromptError()
             else:
-                raise InvalidPromptError()
-        else:
-            self.prompt = prompt
+                self.prompt = prompt
 
         self.name_to_command = OrderedDict()
         self.completer = _Completer(self)
@@ -281,8 +276,8 @@ class RootMenu(_Menu):
     """
     The class to be used for the main menu of an application.
     """
-    def __init__(self, name, helpheader, prompt=None):
-        super().__init__(None, name, helpheader, prompt or DynamicPrompt())
+    def __init__(self, name, helpheader, prompt=DynamicPrompt):
+        super().__init__(None, name, helpheader, prompt)
 
 
 class SubMenu(_Menu):
