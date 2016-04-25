@@ -235,6 +235,9 @@ class _Menu(_Command):
             return self.on_ambiguous_command(cmdmatches, cmdprefix, *args)
 
     def on_empty_line(self):
+        # TODO: Conform to the output of
+        #       readline.set_completion_display_matches_hook
+        #       https://docs.python.org/3.5/library/readline.html
         print(*self.name_to_command.keys())
         return False
 
@@ -243,8 +246,6 @@ class _Menu(_Command):
         return False
 
     def on_ambiguous_command(self, cmdmatches, cmdprefix, *args):
-        # TODO: Conform to readline.set_completion_display_matches_hook
-        #       https://docs.python.org/3.5/library/readline.html
         print('Ambiguous command:', cmdprefix,
               '[' + ','.join(cmd.name for cmd in cmdmatches) + ']')
         return False
