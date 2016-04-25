@@ -16,8 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with cmenu.  If not, see <http://www.gnu.org/licenses/>.
 
-import shlex as _m_shlex
-import readline as _m_readline
+import shlex
+import readline
 from collections import OrderedDict
 
 """
@@ -35,7 +35,22 @@ The main differences from cmd.Cmd are:
 * Uses shlex.split by default
 """
 
-SPLITARGS = _m_shlex.split
+SPLITARGS = shlex.split
+
+
+def configure_readline():
+    # TODO: This is probably not the right place to configure readline...
+    # TODO: A lot more than word completion can be done with readline, see:
+    #       https://pymotw.com/2/readline/
+    #       https://docs.python.org/3.5/library/readline.html
+    readline.parse_and_bind("tab: complete")
+    # TODO
+    print('delims', readline.get_completer_delims())
+    delims = readline.get_completer_delims()
+    pre, discarded, post = delims.partition('-')
+    readline.set_completer_delims(''.join((pre, post)))
+
+configure_readline()
 
 
 class DynamicPrompt:
@@ -71,6 +86,33 @@ class DynamicPrompt:
         return self.prompt
 
 
+class _Completer:
+    def __init__(self, menu):
+        self.menu = menu
+        # TODO: Cache the last N requested current_line/matches pairs
+        self.line = None
+        self.matches = []
+
+    def complete(self, _ignored_prefix, index):
+        line = readline.get_line_buffer()
+        if line != self.line:
+            self.line = line
+            # SPLITARGS decides which is the prefix to search, not readline
+            sline = SPLITARGS(line)
+            # TODO: Get nested completion_words
+            try:
+                prefix = sline[-1]
+            except IndexError:
+                self.matches = []
+            else:
+                self.matches = [name for name in self.menu.completion_words
+                                if name.startswith(prefix)]
+        try:
+            return self.matches[index]
+        except IndexError:
+            return None
+
+
 class _Command:
     def __init__(self, parentmenu, name, helpfull, helpshort=None):
         self.parentmenu = parentmenu
@@ -82,6 +124,13 @@ class _Command:
         if parentmenu:
             parentmenu.add_command(self)
 
+    @property
+    def completion_words(self):
+        """
+        Override in order to have command or argument completion.
+        """
+        return ()
+
     def help(self, *args):
         """
         Can be overridden (and for example _Menu does).
@@ -91,13 +140,6 @@ class _Command:
         else:
             print(self.helpfull)
         return False
-
-    def set_completer(self):
-        """
-        Can be overridden.
-        """
-        # TODO: Set a default
-        pass
 
     def execute(self, *args):
         """
@@ -128,6 +170,7 @@ class _Menu(_Command):
             self.prompt = prompt
 
         self.name_to_command = OrderedDict()
+        self.completer = _Completer(self)
 
     def add_command(self, command):
         if command.name not in self.name_to_command:
@@ -149,6 +192,7 @@ class _Menu(_Command):
     def loop_input(self):
         # Always adapt the other self.loop_* methods when making changes to
         # this one
+        readline.set_completer(self.completer.complete)
         while True:
             cmdline = input(self.prompt)
             if self.run_line(cmdline) is self.END_LOOP:
@@ -204,9 +248,15 @@ class _Menu(_Command):
         return False
 
     def on_ambiguous_command(self, cmdmatches, cmdprefix, *args):
+        # TODO: Conform to readline.set_completion_display_matches_hook
+        #       https://docs.python.org/3.5/library/readline.html
         print('Ambiguous command:', cmdprefix,
               '[' + ','.join(cmd.name for cmd in cmdmatches) + ']')
         return False
+
+    @property
+    def completion_words(self):
+        return self.name_to_command.keys()
 
     def help(self, *args):
         if args:
@@ -219,15 +269,6 @@ class _Menu(_Command):
                 print('  {}    {}'.format(name.ljust(width),
                                           command.helpshort))
             return False
-
-    def set_completer(self):
-        # TODO: Implement
-        print()
-        print('text', text)
-        print('line', line)
-        print('begidx', begidx)
-        print('endidx', endidx)
-        return [attr[3:] for attr in dir(self.configmenu) if attr[:3] == 'do_']
 
     def execute(self, *args):
         if args:
