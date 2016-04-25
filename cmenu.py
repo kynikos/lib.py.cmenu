@@ -35,7 +35,7 @@ The main differences from cmd.Cmd are:
 * Uses shlex.split by default
 """
 
-SPLITARGS = shlex.split
+SPLIT_ARGS = shlex.split
 
 
 def configure_readline():
@@ -88,8 +88,8 @@ class _Completer:
         line = readline.get_line_buffer()
         if line != self.line:
             self.line = line
-            # SPLITARGS decides which is the prefix to search, not readline
-            sline = SPLITARGS(line)
+            # SPLIT_ARGS decides which is the prefix to search, not readline
+            sline = SPLIT_ARGS(line)
             # TODO: Get nested completion_words
             try:
                 prefix = sline[-1]
@@ -218,7 +218,7 @@ class _Menu(_Command):
     def run_line(self, cmdline):
         if not cmdline:
             return self.on_empty_line()
-        cmdprefix, *args = SPLITARGS(cmdline)
+        cmdprefix, *args = SPLIT_ARGS(cmdline)
         return self.run_command(cmdprefix, *args)
 
     def run_command(self, cmdprefix, *args):
@@ -302,7 +302,7 @@ class Alias(_Command):
     """
     def __init__(self, parentmenu, name, alias):
         super().__init__(parentmenu, name, helpfull="Alias <{}>".format(alias))
-        self.alias = SPLITARGS(alias)
+        self.alias = SPLIT_ARGS(alias)
 
     def execute(self, *args):
         return self.parentmenu.run_command(*self.alias, *args)
