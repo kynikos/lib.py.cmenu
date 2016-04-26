@@ -36,21 +36,18 @@ The main differences from cmd.Cmd are:
 """
 
 SPLIT_ARGS = shlex.split
+READLINE_INIT = """
+tab: complete
+"""
 
 
 def configure_readline():
-    # TODO: This is probably not the right place to configure readline...
     # TODO: A lot more than word completion can be done with readline, see:
     #       https://pymotw.com/2/readline/
     #       https://docs.python.org/3.5/library/readline.html
-    readline.parse_and_bind("tab: complete")
-    # TODO
-    print('delims', readline.get_completer_delims())
-    delims = readline.get_completer_delims()
-    pre, discarded, post = delims.partition('-')
-    readline.set_completer_delims(''.join((pre, post)))
-
-configure_readline()
+    #           readline.set_completer_delims(string)
+    for line in READLINE_INIT.splitlines():
+        readline.parse_and_bind(line)
 
 
 class DynamicPrompt:
@@ -80,26 +77,23 @@ class DynamicPrompt:
 class _Completer:
     def __init__(self, menu):
         self.menu = menu
-        # TODO: Cache the last N requested current_line/matches pairs
+
+        # TODO: Cache the last N requested current_line/matches pairs?
+        #       (with collections.deque)
         self.line = None
         self.matches = []
 
-    def complete(self, _ignored_prefix, index):
+    def complete(self, rl_prefix, rl_index):
         line = readline.get_line_buffer()
         if line != self.line:
             self.line = line
-            # SPLIT_ARGS decides which is the prefix to search, not readline
-            sline = SPLIT_ARGS(line)
-            # TODO: Get nested completion_words
-            try:
-                prefix = sline[-1]
-            except IndexError:
-                self.matches = []
-            else:
-                self.matches = [name for name in self.menu.completion_words
-                                if name.startswith(prefix)]
+            sp_args = SPLIT_ARGS(line)
+            rl_begidx = readline.get_begidx()
+            rl_endidx = readline.get_endidx()
+            self.matches = self.menu.complete(sp_args, line, rl_prefix,
+                                              rl_begidx, rl_endidx)
         try:
-            return self.matches[index]
+            return self.matches[rl_index]
         except IndexError:
             return None
 
@@ -115,8 +109,7 @@ class _Command:
         if parentmenu:
             parentmenu.add_command(self)
 
-    @property
-    def completion_words(self):
+    def complete(self, sp_args, line, rl_prefix, rl_begidx, rl_endidx):
         """
         Override in order to have command or argument completion.
 
@@ -255,9 +248,35 @@ class _Menu(_Command):
               '[' + ','.join(cmd.name for cmd in cmdmatches) + ']')
         return False
 
-    @property
-    def completion_words(self):
-        return self.name_to_command.keys()
+    def complete(self, sp_args, line, rl_prefix, rl_begidx, rl_endidx):
+        # It's necessary to return a 'list', not just any sequence type
+        if len(sp_args) == 0:
+            return list(self.name_to_command.keys())
+        elif len(sp_args) == 1 and line.endswith(sp_args[0]):
+            matches = []
+            for name in self.name_to_command.keys():
+                if name.startswith(sp_args[0]):
+                    matches.append(name)
+            if len(matches) == 1:
+                # In general, SPLIT_ARGS and readline use different word
+                #  delimiters, see e.g. the docs for
+                #  readline.get_completer_delims()
+                # If for example there's a 'foo-bar' command, SPLIT_ARGS sees
+                #  it as a single word, but readline by default will split it
+                #  in two words, 'foo' and 'bar', and if 'foo-b' is entered in
+                #  the command line, and Tab is pressed, the word will be
+                #  completed as 'foo-bfoo-bar', unless we compensate here by
+                #  subtracting the rl_prefix from the found match
+                sub = len(sp_args[0]) - len(rl_prefix)
+                return [matches[0][sub:]]
+            else:
+                return matches
+        else:
+            # if len(sp_args) == 1 but line.endswith(sp_args[0]) is False, it
+            # means that the first sp_args is already complete
+            command = self.name_to_command[sp_args[0]]
+            return command.complete(sp_args[1:], line, rl_prefix, rl_begidx,
+                                    rl_endidx)
 
     def help(self, *args):
         if args:
@@ -282,7 +301,9 @@ class RootMenu(_Menu):
     """
     The class to be used for the main menu of an application.
     """
-    def __init__(self, name, helpheader, prompt=DynamicPrompt):
+    def __init__(self, name, helpheader, prompt=DynamicPrompt,
+                 readlinecfg=configure_readline):
+        readlinecfg()
         super().__init__(None, name, helpheader, prompt)
 
 
