@@ -20,6 +20,8 @@ import shlex
 import readline
 from collections import OrderedDict
 
+# TODO: Test with pexpect
+
 """
 The main differences from cmd.Cmd are:
 * Submenus
