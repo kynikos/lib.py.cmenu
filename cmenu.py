@@ -268,7 +268,7 @@ class _Menu(_Command):
 
     def execute(self, *args):
         if args:
-            return self.run_line(args)
+            return self.run_command(*args)
         else:
             return self.loop_input()
 
