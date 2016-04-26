@@ -119,8 +119,11 @@ class _Command:
     def completion_words(self):
         """
         Override in order to have command or argument completion.
+
+        It is necessary to return a 'list', i.e. not a tuple or other
+        sequences.
         """
-        return ()
+        return []
 
     def help(self, *args):
         """
@@ -187,6 +190,8 @@ class _Menu(_Command):
     def loop_input(self):
         # Always adapt the other self.loop_* methods when making changes to
         # this one
+
+        # Always reset the completer here because it depends on each (sub)menu
         readline.set_completer(self.completer.complete)
         while True:
             cmdline = input(self.prompt)
