@@ -189,6 +189,15 @@ class _Menu(_Command):
         else:
             raise DuplicatedCommandNameError(command.name)
 
+    def remove_command(self, nameorcommand):
+        try:
+            del self.name_to_command[nameorcommand]
+        except KeyError:
+            try:
+                del self.name_to_command[nameorcommand.name]
+            except (AttributeError, KeyError):
+                raise InvalidCommandError(nameorcommand)
+
     def _find_commands(self, cmdprefix):
         try:
             # In case there are two command names, one substring of the other,
@@ -487,6 +496,10 @@ class DuplicatedCommandNameError(CMenuError):
 
 
 class InsufficientTestCommands(CMenuError):
+    pass
+
+
+class InvalidCommandError(CMenuError):
     pass
 
 
