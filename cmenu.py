@@ -19,6 +19,7 @@
 import shlex
 import readline
 from collections import OrderedDict
+import inspect
 
 # TODO: Test with pexpect
 
@@ -101,12 +102,24 @@ class _Completer:
 
 
 class _Command:
-    def __init__(self, parentmenu, name, helpfull, helpshort=None):
+    def __init__(self, parentmenu, name, helpshort, helpfull):
         self.parentmenu = parentmenu
         self.name = name
-        self.helpfull = helpfull
-        # TODO: Initial empty lines should be discarded
-        self.helpshort = helpshort or helpfull.split('\n', 1)[0]
+
+        if hasattr(helpfull, '__call__'):
+            self.helpfull = inspect.getdoc(helpfull)
+        else:
+            self.helpfull = helpfull or helpshort or ""
+
+        if helpshort:
+            self.helpshort = helpshort
+        else:
+            for line in self.helpfull.splitlines():
+                if line and not line.isspace():
+                    self.helpshort = line
+                    break
+            else:
+                self.helpshort = ""
 
         if parentmenu:
             parentmenu.add_command(self)
@@ -140,9 +153,11 @@ class _Command:
 class _Menu(_Command):
     INHERIT = object()
     END_LOOP = object()
+    HELP_INDENT = 2
+    HELP_SPACING = 4
 
-    def __init__(self, parentmenu, name, helpheader, prompt=INHERIT):
-        super().__init__(parentmenu, name, helpfull=helpheader)
+    def __init__(self, parentmenu, name, helpshort, helpfull, prompt=INHERIT):
+        super().__init__(parentmenu, name, helpshort, helpfull)
 
         try:
             self.prompt = prompt(self)
@@ -293,12 +308,13 @@ class _Menu(_Command):
         if args:
             return self._run_command('help', *args)
         else:
-            # TODO: Better organize white space
-            print(self.helpfull)
             width = max(len(name) for name in self.name_to_command.keys())
-            for name, command in self.name_to_command.items():
-                print('  {}    {}'.format(name.ljust(width),
-                                          command.helpshort))
+            command_list = ['{0}{1}{2}{3}'.format(' ' * self.HELP_INDENT,
+                                                  name.ljust(width),
+                                                  ' ' * self.HELP_SPACING,
+                                                  command.helpshort)
+                            for name, command in self.name_to_command.items()]
+            print(self.helpfull.format(command_list='\n'.join(command_list)))
             return False
 
     def execute(self, *args):
@@ -312,24 +328,29 @@ class RootMenu(_Menu):
     """
     The class to be used for the main menu of an application.
     """
-    def __init__(self, name, helpheader, prompt=DynamicPrompt,
-                 readlinecfg=configure_readline):
+    def __init__(self, name, helpshort=None, helpfull=None,
+                 prompt=DynamicPrompt, readlinecfg=configure_readline):
         readlinecfg()
-        super().__init__(None, name, helpheader, prompt)
+        super().__init__(None, name, helpshort, helpfull, prompt)
 
 
 class SubMenu(_Menu):
     """
     The class to be used for menus under a main menu.
     """
-    def __init__(self, parentmenu, name, helpheader, prompt=_Menu.INHERIT):
-        super().__init__(parentmenu, name, helpheader, prompt)
+    def __init__(self, parentmenu, name, helpshort=None, helpfull=None,
+                 prompt=_Menu.INHERIT):
+        super().__init__(parentmenu, name, helpshort, helpfull, prompt)
 
 
 class Help(_Command):
     """
     A command that shows a help screen.
     """
+    def __init__(self, parentmenu, name, helpshort=None,
+                 helpfull="Show this help screen"):
+        super().__init__(parentmenu, name, helpshort, helpfull)
+
     def execute(self, *args):
         return self.parentmenu.help(*args)
 
@@ -338,8 +359,10 @@ class Alias(_Command):
     """
     A command that executes a series of other commands.
     """
-    def __init__(self, parentmenu, name, alias):
-        super().__init__(parentmenu, name, helpfull="Alias <{}>".format(alias))
+    def __init__(self, parentmenu, name, alias, helpshort=None,
+                 helpfull=None):
+        helpfull = helpfull or "Alias <{}>".format(alias)
+        super().__init__(parentmenu, name, helpshort, helpfull)
         self.alias = SPLIT_ARGS(alias)
 
     def execute(self, *args):
@@ -350,8 +373,10 @@ class Action(_Command):
     """
     A command that executes a function.
     """
-    def __init__(self, parentmenu, name, execute, helpfull):
-        super().__init__(parentmenu, name, helpfull)
+    def __init__(self, parentmenu, name, execute, helpshort=None,
+                 helpfull=None):
+        helpfull = helpfull or execute
+        super().__init__(parentmenu, name, helpshort, helpfull)
         self.execute = execute
 
 
