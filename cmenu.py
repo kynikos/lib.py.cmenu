@@ -20,6 +20,7 @@ import shlex
 import readline
 from collections import OrderedDict
 import inspect
+import sys
 
 # TODO: Write documentation
 # TODO: Test with pexpect
@@ -415,6 +416,37 @@ class TextEditor(_Command):
     def execute(self, *args):
         # TODO: Implement
         raise NotImplementedError()
+
+
+class Exit(_Command):
+    """
+    A command that ends a command loop, usually going back to the parent menu,
+    or quitting the application if run from the root menu.
+    """
+    def __init__(self, parentmenu, name, helpshort=None,
+                 helpfull="Exit the menu"):
+        super().__init__(parentmenu, name, helpshort, helpfull)
+
+    def execute(self, *args):
+        if len(args) > 0:
+            print('Unrecognized arguments:', *args)
+            return False
+        return END_LOOP
+
+
+class Quit(_Command):
+    """
+    A command that forces quitting the application.
+    """
+    def __init__(self, parentmenu, name, helpshort=None,
+                 helpfull="Quit the application"):
+        super().__init__(parentmenu, name, helpshort, helpfull)
+
+    def execute(self, *args):
+        if len(args) > 0:
+            print('Unrecognized arguments:', *args)
+            return False
+        sys.exit()
 
 
 class CMenuError(Exception):
