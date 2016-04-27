@@ -46,6 +46,7 @@ tab: complete
 """
 INHERIT = object()
 END_LOOP = object()
+END_ALL_LOOPS = object()
 
 
 def configure_readline():
@@ -207,8 +208,11 @@ class _Menu(_Command):
         readline.set_completer(self.completer.complete)
         while True:
             cmdline = input(self.prompt)
-            if self.run_line(cmdline) is END_LOOP:
-                break
+            ret = self.run_line(cmdline)
+            if ret is END_LOOP:
+                return False
+            elif ret is END_ALL_LOOPS:
+                return ret
 
     def loop_lines(self, cmdlines):
         # Always adapt the other self.loop_* methods when making changes to
@@ -220,8 +224,11 @@ class _Menu(_Command):
             #       input prompt; maybe a new special command class should also
             #       be added to resume the execution of the 'cmdline' list
             #       (e.g. 'T: resume the testing commands list')
-            if self.run_line(cmdline) is END_LOOP:
-                break
+            ret = self.run_line(cmdline)
+            if ret is END_LOOP:
+                return False
+            elif ret is END_ALL_LOOPS:
+                return ret
 
     def loop_test(self, cmdlines):
         # Always adapt the other self.loop_* methods when making changes to
@@ -233,8 +240,11 @@ class _Menu(_Command):
         for cmdline in cmdlines:
             # See TODO above in loop_lines
             print(self.prompt, cmdline, sep='')
-            if self.run_line(cmdline) is END_LOOP:
-                break
+            ret = self.run_line(cmdline)
+            if ret is END_LOOP:
+                return False
+            elif ret is END_ALL_LOOPS:
+                return ret
         else:
             raise InsufficientTestCommands()
 
@@ -321,7 +331,12 @@ class _Menu(_Command):
 
     def execute(self, *args):
         if args:
-            return self.run_command(*args)
+            ret = self.run_command(*args)
+            if ret is END_LOOP:
+                # Do not propagate the exit to the parent menu
+                # (END_ALL_LOOPS is there to do that instead)
+                return False
+            return ret
         else:
             return self.loop_input()
 
