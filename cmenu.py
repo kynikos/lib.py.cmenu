@@ -382,19 +382,17 @@ class TextEditor(_Command):
         raise NotImplementedError()
 
 
-# TODO: Use a common root exception class once a name for this module is
-#       decided
-class RenameMeTODO(Exception):
+class CMenuError(Exception):
     pass
 
 
-class DuplicatedCommandNameError(RenameMeTODO):
+class DuplicatedCommandNameError(CMenuError):
     pass
 
 
-class InsufficientTestCommands(RenameMeTODO):
+class InsufficientTestCommands(CMenuError):
     pass
 
 
-class InvalidPromptError(RenameMeTODO):
+class InvalidPromptError(CMenuError):
     pass
