@@ -420,9 +420,22 @@ class LineEditor(_Command):
     """
     A command that presents an editable string of text.
     """
+    def __init__(self, parentmenu, name, load_str, save_str, helpshort=None,
+                 helpfull=None):
+        super().__init__(parentmenu, name, helpshort, helpfull)
+        self.load_str = load_str
+        self.save_str = save_str
+
     def execute(self, *args):
-        # TODO: Implement
-        raise NotImplementedError()
+        # From http://stackoverflow.com/a/2533142/645498
+        readline.set_startup_hook(lambda: readline.insert_text(self.load_str(
+                                                                    *args)))
+        try:
+            newstr = input()
+        finally:
+            readline.set_startup_hook()
+        self.save_str(newstr)
+        return False
 
 
 class TextEditor(_Command):
