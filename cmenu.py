@@ -235,10 +235,11 @@ class _Menu(_Command):
             return self.on_ambiguous_command(cmdmatches, cmdprefix, *args)
 
     def on_empty_line(self):
-        # TODO: Conform to the output of
+        # TODO: Optionally print a list of the available comands
+        #       Conform to the output of
         #       readline.set_completion_display_matches_hook
         #       https://docs.python.org/3.5/library/readline.html
-        print(*self.name_to_command.keys())
+        # print(*self.name_to_command.keys())
         return False
 
     def on_bad_command(self, cmdprefix, *args):
