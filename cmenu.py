@@ -196,19 +196,25 @@ class _Menu(_Command):
     def loop_lines(self, cmdlines):
         # Always adapt the other self.loop_* methods when making changes to
         # this one
+
         for cmdline in cmdlines:
-            # TODO: See syncere bug #60
+            # TODO: Support a cmdline value of True (or another non-string)
+            #       to allow entering a command interactively through a normal
+            #       input prompt; maybe a new special command class should also
+            #       be added to resume the execution of the 'cmdline' list
+            #       (e.g. 'T: resume the testing commands list')
             if self.run_line(cmdline) is self.END_LOOP:
                 break
 
     def loop_test(self, cmdlines):
         # Always adapt the other self.loop_* methods when making changes to
         # this one
+
         # If cmdlines is empty, the final else clause isn't reached
         if not cmdlines:
             raise InsufficientTestCommands()
         for cmdline in cmdlines:
-            # TODO: See syncere bug #60
+            # See TODO above in loop_lines
             print(self.prompt, cmdline, sep='')
             if self.run_line(cmdline) is self.END_LOOP:
                 break
