@@ -237,7 +237,6 @@ class _Menu(_Command):
         elif args or len(cmdmatches) == 0:
             return self.on_bad_command(cmdprefix, *args)
         else:
-            # TODO: Fill the next input with cmdline
             return self.on_ambiguous_command(cmdmatches, cmdprefix, *args)
 
     def on_empty_line(self):
@@ -253,6 +252,9 @@ class _Menu(_Command):
         return False
 
     def on_ambiguous_command(self, cmdmatches, cmdprefix, *args):
+        # TODO: Fill the next input with cmdline (maybe return a special
+        #       object, similar to END_LOOP, that is used to prefill the next
+        #       input)
         print('Ambiguous command:', cmdprefix,
               '[' + ','.join(cmd.name for cmd in cmdmatches) + ']')
         return False
