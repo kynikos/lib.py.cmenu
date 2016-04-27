@@ -43,6 +43,8 @@ SPLIT_ARGS = shlex.split
 READLINE_INIT = """
 tab: complete
 """
+INHERIT = object()
+END_LOOP = object()
 
 
 def configure_readline():
@@ -152,8 +154,6 @@ class _Command:
 
 
 class _Menu(_Command):
-    INHERIT = object()
-    END_LOOP = object()
     HELP_INDENT = 2
     HELP_SPACING = 4
 
@@ -165,7 +165,7 @@ class _Menu(_Command):
         except TypeError:
             # Raised if prompt isn't callable, e.g. it's not a DynamicPrompt
             # class
-            if prompt is self.INHERIT:
+            if prompt is INHERIT:
                 if parentmenu:
                     try:
                         self.prompt = parentmenu.prompt.__class__(self)
@@ -206,7 +206,7 @@ class _Menu(_Command):
         readline.set_completer(self.completer.complete)
         while True:
             cmdline = input(self.prompt)
-            if self.run_line(cmdline) is self.END_LOOP:
+            if self.run_line(cmdline) is END_LOOP:
                 break
 
     def loop_lines(self, cmdlines):
@@ -219,7 +219,7 @@ class _Menu(_Command):
             #       input prompt; maybe a new special command class should also
             #       be added to resume the execution of the 'cmdline' list
             #       (e.g. 'T: resume the testing commands list')
-            if self.run_line(cmdline) is self.END_LOOP:
+            if self.run_line(cmdline) is END_LOOP:
                 break
 
     def loop_test(self, cmdlines):
@@ -232,7 +232,7 @@ class _Menu(_Command):
         for cmdline in cmdlines:
             # See TODO above in loop_lines
             print(self.prompt, cmdline, sep='')
-            if self.run_line(cmdline) is self.END_LOOP:
+            if self.run_line(cmdline) is END_LOOP:
                 break
         else:
             raise InsufficientTestCommands()
@@ -340,7 +340,7 @@ class SubMenu(_Menu):
     The class to be used for menus under a main menu.
     """
     def __init__(self, parentmenu, name, helpshort=None, helpfull=None,
-                 prompt=_Menu.INHERIT):
+                 prompt=INHERIT):
         super().__init__(parentmenu, name, helpshort, helpfull, prompt)
 
 
