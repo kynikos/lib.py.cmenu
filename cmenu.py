@@ -402,7 +402,7 @@ class Question(_Command):
     """
     A command that prompts the user for some input text.
     """
-    def execute(self, *args):
+    def __init__(self, parentmenu, name, helpshort=None, helpfull=None):
         # TODO: Implement
         raise NotImplementedError()
 
@@ -411,7 +411,7 @@ class Choice(_Command):
     """
     A command that prompts the user to choose from a set of answers.
     """
-    def execute(self, *args):
+    def __init__(self, parentmenu, name, helpshort=None, helpfull=None):
         # TODO: Implement
         raise NotImplementedError()
 
@@ -442,7 +442,7 @@ class TextEditor(_Command):
     """
     A command that opens text in an external editor.
     """
-    def execute(self, *args):
+    def __init__(self, parentmenu, name, helpshort=None, helpfull=None):
         # TODO: Implement
         raise NotImplementedError()
 
