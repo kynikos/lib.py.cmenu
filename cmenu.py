@@ -321,6 +321,7 @@ class _Menu(_Command):
             return self._run_command('help', *args)
         else:
             width = max(len(name) for name in self.name_to_command.keys())
+            # TODO: Optionally print the aliases in a separate table
             command_list = ['{0}{1}{2}{3}'.format(' ' * self.HELP_INDENT,
                                                   name.ljust(width),
                                                   ' ' * self.HELP_SPACING,
