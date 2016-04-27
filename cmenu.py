@@ -321,9 +321,12 @@ class _Menu(_Command):
         else:
             # if len(sp_args) == 1 but line.endswith(sp_args[0]) is False, it
             # means that the first sp_args is already complete
-            command = self.name_to_command[sp_args[0]]
-            return command.complete(sp_args[1:], line, rl_prefix, rl_begidx,
-                                    rl_endidx)
+            matches = self._find_commands(sp_args[0])
+            if len(matches) == 1:
+                return matches[0].complete(sp_args[1:], line, rl_prefix,
+                                           rl_begidx, rl_endidx)
+            else:
+                return []
 
     def help(self, *args):
         if args:
