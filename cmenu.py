@@ -222,9 +222,10 @@ class _Menu(_Command):
             except self.EndLoops as exc:
                 if self.parentmenu:
                     if exc.args[0] < 2:
-                        # Always reset the completer here because it depends on each
-                        # (sub)menu
-                        readline.set_completer(self.parentmenu.completer.complete)
+                        # Always reset the completer here because it depends on
+                        # each (sub)menu
+                        readline.set_completer(
+                                            self.parentmenu.completer.complete)
                     else:
                         raise self.EndLoops(exc.args[0] - 1)
         return inner
@@ -353,7 +354,7 @@ class _Menu(_Command):
 
     def execute(self, *args):
         if args:
-            ret = self.run_command(*args)
+            self.run_command(*args)
         else:
             self.loop_input()
 
