@@ -198,6 +198,10 @@ class _Menu(_Command):
             except (AttributeError, KeyError):
                 raise InvalidCommandError(nameorcommand)
 
+    def get_command(self, name):
+        # This can raise KeyError, but it's ok
+        return self.name_to_command[name]
+
     def _find_commands(self, cmdprefix):
         try:
             # In case there are two command names, one substring of the other,
