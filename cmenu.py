@@ -283,7 +283,7 @@ class _Menu(_Command):
         cmdmatches = self._find_commands(cmdprefix)
         if len(cmdmatches) == 1:
             getattr(cmdmatches[0], method)(*args)
-        elif args or len(cmdmatches) == 0:
+        elif len(cmdmatches) == 0:
             self.on_bad_command(cmdprefix, *args)
         else:
             self.on_ambiguous_command(cmdmatches, cmdprefix, *args)
