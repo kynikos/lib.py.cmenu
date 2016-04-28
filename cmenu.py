@@ -125,7 +125,13 @@ class _Command:
                 self.helpshort = ""
 
         if parentmenu:
-            parentmenu._add_command(self)
+            if name not in self.parentmenu.name_to_command:
+                self.parentmenu.name_to_command[name] = self
+            else:
+                raise DuplicatedCommandNameError(name)
+
+    def uninstall(self):
+        del self.parentmenu.name_to_command[self.name]
 
     def complete(self, sp_args, line, rl_prefix, rl_begidx, rl_endidx):
         """
@@ -180,25 +186,6 @@ class _Menu(_Command):
 
         self.name_to_command = OrderedDict()
         self.completer = _Completer(self)
-
-    def _add_command(self, command):
-        """
-        Do not use this method for adding a command to a menu; simply
-        instantiating the command will add it.
-        """
-        if command.name not in self.name_to_command:
-            self.name_to_command[command.name] = command
-        else:
-            raise DuplicatedCommandNameError(command.name)
-
-    def remove_command(self, nameorcommand):
-        try:
-            del self.name_to_command[nameorcommand]
-        except KeyError:
-            try:
-                del self.name_to_command[nameorcommand.name]
-            except (AttributeError, KeyError):
-                raise InvalidCommandError(nameorcommand)
 
     def get_command(self, name):
         # This can raise KeyError, but it's ok
@@ -503,10 +490,6 @@ class DuplicatedCommandNameError(CMenuError):
 
 
 class InsufficientTestCommands(CMenuError):
-    pass
-
-
-class InvalidCommandError(CMenuError):
     pass
 
 
