@@ -125,7 +125,7 @@ class _Command:
                 self.helpshort = ""
 
         if parentmenu:
-            parentmenu.add_command(self)
+            parentmenu._add_command(self)
 
     def complete(self, sp_args, line, rl_prefix, rl_begidx, rl_endidx):
         """
@@ -181,7 +181,11 @@ class _Menu(_Command):
         self.name_to_command = OrderedDict()
         self.completer = _Completer(self)
 
-    def add_command(self, command):
+    def _add_command(self, command):
+        """
+        Do not use this method for adding a command to a menu; simply
+        instantiating the command will add it.
+        """
         if command.name not in self.name_to_command:
             self.name_to_command[command.name] = command
         else:
