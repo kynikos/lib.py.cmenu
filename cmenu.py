@@ -45,8 +45,6 @@ READLINE_INIT = """
 tab: complete
 """
 INHERIT = object()
-END_LOOP = object()
-END_ALL_LOOPS = object()
 
 
 def configure_readline():
@@ -146,7 +144,6 @@ class _Command:
             print('Invalid arguments:', *args)
         else:
             print(self.helpfull)
-        return False
 
     def execute(self, *args):
         """
@@ -158,6 +155,7 @@ class _Command:
 class _Menu(_Command):
     HELP_INDENT = 2
     HELP_SPACING = 4
+    EndLoops = type('EndLoops', (Exception, ), {})
 
     def __init__(self, parentmenu, name, helpshort, helpfull, prompt=INHERIT):
         super().__init__(parentmenu, name, helpshort, helpfull)
@@ -213,6 +211,21 @@ class _Menu(_Command):
             return [command for name, command in self.name_to_command.items()
                     if name.startswith(cmdprefix)]
 
+    def _loop(func):
+        def inner(self, *args, **kwargs):
+            try:
+                func(self, *args, **kwargs)
+            except self.EndLoops as exc:
+                if self.parentmenu:
+                    if exc.args[0] < 2:
+                        # Always reset the completer here because it depends on each
+                        # (sub)menu
+                        readline.set_completer(self.parentmenu.completer.complete)
+                    else:
+                        raise self.EndLoops(exc.args[0] - 1)
+        return inner
+
+    @_loop
     def loop_input(self):
         # Always adapt the other self.loop_* methods when making changes to
         # this one
@@ -221,12 +234,9 @@ class _Menu(_Command):
         readline.set_completer(self.completer.complete)
         while True:
             cmdline = input(self.prompt)
-            ret = self.run_line(cmdline)
-            if ret is END_LOOP:
-                return False
-            elif ret is END_ALL_LOOPS:
-                return ret
+            self.run_line(cmdline)
 
+    @_loop
     def loop_lines(self, cmdlines):
         # Always adapt the other self.loop_* methods when making changes to
         # this one
@@ -237,12 +247,9 @@ class _Menu(_Command):
             #       input prompt; maybe a new special command class should also
             #       be added to resume the execution of the 'cmdline' list
             #       (e.g. 'T: resume the testing commands list')
-            ret = self.run_line(cmdline)
-            if ret is END_LOOP:
-                return False
-            elif ret is END_ALL_LOOPS:
-                return ret
+            self.run_line(cmdline)
 
+    @_loop
     def loop_test(self, cmdlines):
         # Always adapt the other self.loop_* methods when making changes to
         # this one
@@ -253,31 +260,28 @@ class _Menu(_Command):
         for cmdline in cmdlines:
             # See TODO above in loop_lines
             print(self.prompt, cmdline, sep='')
-            ret = self.run_line(cmdline)
-            if ret is END_LOOP:
-                return False
-            elif ret is END_ALL_LOOPS:
-                return ret
+            self.run_line(cmdline)
         else:
             raise InsufficientTestCommands()
 
     def run_line(self, cmdline):
         if not cmdline:
-            return self.on_empty_line()
-        cmdprefix, *args = SPLIT_ARGS(cmdline)
-        return self.run_command(cmdprefix, *args)
+            self.on_empty_line()
+        else:
+            cmdprefix, *args = SPLIT_ARGS(cmdline)
+            self.run_command(cmdprefix, *args)
 
     def run_command(self, cmdprefix, *args):
-        return self._run_command('execute', cmdprefix, *args)
+        self._run_command('execute', cmdprefix, *args)
 
     def _run_command(self, method, cmdprefix, *args):
         cmdmatches = self._find_commands(cmdprefix)
         if len(cmdmatches) == 1:
-            return getattr(cmdmatches[0], method)(*args)
+            getattr(cmdmatches[0], method)(*args)
         elif args or len(cmdmatches) == 0:
-            return self.on_bad_command(cmdprefix, *args)
+            self.on_bad_command(cmdprefix, *args)
         else:
-            return self.on_ambiguous_command(cmdmatches, cmdprefix, *args)
+            self.on_ambiguous_command(cmdmatches, cmdprefix, *args)
 
     def on_empty_line(self):
         # TODO: Optionally print a list of the available comands
@@ -285,19 +289,17 @@ class _Menu(_Command):
         #       readline.set_completion_display_matches_hook
         #       https://docs.python.org/3.5/library/readline.html
         # print(*self.name_to_command.keys())
-        return False
+        pass
 
     def on_bad_command(self, cmdprefix, *args):
         print('Unrecognized command:', cmdprefix)
-        return False
 
     def on_ambiguous_command(self, cmdmatches, cmdprefix, *args):
-        # TODO: Fill the next input with cmdline (maybe return a special
-        #       object, similar to END_LOOP, that is used to prefill the next
-        #       input)
+        # TODO: Fill the next input with cmdline (maybe raise a special
+        #       exception, similar to the EndLoops, that is used to prefill
+        #       the next input)
         print('Ambiguous command:', cmdprefix,
               '[' + ','.join(cmd.name for cmd in cmdmatches) + ']')
-        return False
 
     def complete(self, sp_args, line, rl_prefix, rl_begidx, rl_endidx):
         # It's necessary to return a 'list', not just any sequence type
@@ -334,7 +336,7 @@ class _Menu(_Command):
 
     def help(self, *args):
         if args:
-            return self._run_command('help', *args)
+            self._run_command('help', *args)
         else:
             width = max(len(name) for name in self.name_to_command.keys())
             # TODO: Optionally print the aliases in a separate table
@@ -344,18 +346,12 @@ class _Menu(_Command):
                                                   command.helpshort)
                             for name, command in self.name_to_command.items()]
             print(self.helpfull.format(command_list='\n'.join(command_list)))
-            return False
 
     def execute(self, *args):
         if args:
             ret = self.run_command(*args)
-            if ret is END_LOOP:
-                # Do not propagate the exit to the parent menu
-                # (END_ALL_LOOPS is there to do that instead)
-                return False
-            return ret
         else:
-            return self.loop_input()
+            self.loop_input()
 
 
 class RootMenu(_Menu):
@@ -386,7 +382,7 @@ class Help(_Command):
         super().__init__(parentmenu, name, helpshort, helpfull)
 
     def execute(self, *args):
-        return self.parentmenu.help(*args)
+        self.parentmenu.help(*args)
 
 
 class Alias(_Command):
@@ -400,7 +396,7 @@ class Alias(_Command):
         self.alias = SPLIT_ARGS(alias)
 
     def execute(self, *args):
-        return self.parentmenu.run_command(*self.alias, *args)
+        self.parentmenu.run_command(*self.alias, *args)
 
 
 class Action(_Command):
@@ -451,7 +447,6 @@ class LineEditor(_Command):
         finally:
             readline.set_startup_hook()
         self.save_str(newstr)
-        return False
 
 
 class TextEditor(_Command):
@@ -475,8 +470,8 @@ class Exit(_Command):
     def execute(self, *args):
         if len(args) > 0:
             print('Unrecognized arguments:', *args)
-            return False
-        return END_LOOP
+        else:
+            raise self.parentmenu.EndLoops(1)
 
 
 class Quit(_Command):
@@ -490,8 +485,8 @@ class Quit(_Command):
     def execute(self, *args):
         if len(args) > 0:
             print('Unrecognized arguments:', *args)
-            return False
-        sys.exit()
+        else:
+            sys.exit()
 
 
 class CMenuError(Exception):
