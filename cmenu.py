@@ -187,10 +187,6 @@ class _Menu(_Command):
         self.name_to_command = OrderedDict()
         self.completer = _Completer(self)
 
-    def get_command(self, name):
-        # This can raise KeyError, but it's ok
-        return self.name_to_command[name]
-
     def _find_commands(self, cmdprefix):
         try:
             # In case there are two command names, one substring of the other,
@@ -391,6 +387,75 @@ class Alias(_Command):
         self.parentmenu.run_command(*self.alias, *args)
 
 
+class AliasSet(_Command):
+    """
+    A command that sets a command alias.
+    """
+    def __init__(self, parentmenu, name, aliasmenu, helpshort=None,
+                 helpfull=None):
+        super().__init__(parentmenu, name, helpshort, helpfull)
+        self.aliasmenu = aliasmenu
+
+    def execute(self, *args):
+        if len(args) != 2:
+            print('Wrong syntax')
+            return False
+        try:
+            command = self.aliasmenu.name_to_command[args[0]]
+        except KeyError:
+            pass
+        else:
+            if isinstance(command, Alias):
+                command.uninstall()
+            else:
+                print('Cannot override built-in commands')
+                return False
+        Alias(self.aliasmenu, args[0], args[1])
+
+
+class AliasUnset(_Command):
+    """
+    A command that unsets a command alias.
+    """
+    def __init__(self, parentmenu, name, aliasmenu, helpshort=None,
+                 helpfull=None):
+        super().__init__(parentmenu, name, helpshort, helpfull)
+        self.aliasmenu = aliasmenu
+
+    def execute(self, *args):
+        if len(args) != 1:
+            print('Wrong syntax')
+            return False
+        try:
+            command = self.aliasmenu.name_to_command[args[0]]
+        except KeyError:
+            print('The alias does not exist')
+        else:
+            if not isinstance(command, Alias):
+                print('Cannot remove built-in commands')
+            else:
+                command.uninstall()
+
+
+class AliasUnsetAll(_Command):
+    """
+    A command that unsets all command aliases.
+    """
+    def __init__(self, parentmenu, name, aliasmenu, helpshort=None,
+                 helpfull=None):
+        super().__init__(parentmenu, name, helpshort, helpfull)
+        self.aliasmenu = aliasmenu
+
+    def execute(self, *args):
+        if len(args) > 0:
+            print('Wrong syntax')
+            return False
+        # list name_to_command because this loop is modifying it
+        for command in list(self.aliasmenu.name_to_command.values()):
+            if isinstance(command, Alias):
+                command.uninstall()
+
+
 class Action(_Command):
     """
     A command that executes a function.
@@ -448,6 +513,29 @@ class TextEditor(_Command):
     def __init__(self, parentmenu, name, helpshort=None, helpfull=None):
         # TODO: Implement
         raise NotImplementedError()
+
+
+class RunScript(_Command):
+    """
+    A command that runs a series of commands from a script.
+    """
+    def __init__(self, parentmenu, name, helpshort=None, helpfull=None):
+        super().__init__(parentmenu, name, helpshort, helpfull)
+
+    def execute(self, *args):
+        if len(args) == 0:
+            print('File name not specified')
+        elif len(args) > 1:
+            print('Too many arguments')
+        else:
+            try:
+                script = open(args[0], 'r')
+            except OSError as exc:
+                print('The file cannot be opened: ' + exc.strerror)
+            else:
+                with script:
+                    for line in script:
+                        self.parentmenu.onecmd(line)
 
 
 class Exit(_Command):
