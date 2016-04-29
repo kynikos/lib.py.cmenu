@@ -496,13 +496,20 @@ class LineEditor(_Command):
         self.save_str = save_str
 
     def execute(self, *args):
-        # From http://stackoverflow.com/a/2533142/645498
-        readline.set_startup_hook(lambda: readline.insert_text(self.load_str(
-                                                                    *args)))
-        try:
-            newstr = input()
-        finally:
-            readline.set_startup_hook()
+        if len(args) > 1:
+            print('Too many arguments')
+            return False
+
+        if len(args) == 1:
+            newstr = args[0]
+        else:
+            # From http://stackoverflow.com/a/2533142/645498
+            readline.set_startup_hook(lambda: readline.insert_text(
+                                                            self.load_str()))
+            try:
+                newstr = input()
+            finally:
+                readline.set_startup_hook()
         self.save_str(newstr)
 
 
