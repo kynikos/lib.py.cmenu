@@ -213,8 +213,8 @@ class _Menu(_Command):
         # At one point in time there were different loop_* methods, see comment
         # on 'loop', which is why this was designed as a decorator; now this
         # could be merged into the loop method, but is instead left here in
-        # case some developers wanted to create their loop methods and still
-        # easily retain this functionality
+        # case somebody wanted to create their loop methods and still easily
+        # retain this functionality
 
         def inner(self, *args, **kwargs):
             try:
@@ -234,7 +234,7 @@ class _Menu(_Command):
         return inner
 
     @_break_protected
-    def loop(self, cmdlines=[], test=False):
+    def loop(self, intro=None, cmdlines=[], test=False):
         # At one point in time there were different loop_* methods, but that
         # was giving unexpected behavior when more of them were used after each
         # other, since they were wrapped by @_loop one by one, and when one was
@@ -258,6 +258,10 @@ class _Menu(_Command):
                 if self.loop_test:
                     raise InsufficientTestCommands()
                 else:
+                    if intro:
+                        print(intro)
+                        # Only print once
+                        intro = None
                     cmdline = input(self.prompt)
             else:
                 if isinstance(cmdline, TestInteract):
@@ -366,7 +370,8 @@ class _Menu(_Command):
         if args:
             self.run_command(*args)
         else:
-            self.loop(self.parentmenu.loop_cmdlines, self.parentmenu.loop_test)
+            self.loop(cmdlines=self.parentmenu.loop_cmdlines,
+                      test=self.parentmenu.loop_test)
 
 
 class RootMenu(_Menu):
