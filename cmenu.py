@@ -20,7 +20,6 @@ import shlex
 import readline
 from collections import OrderedDict
 import inspect
-import sys
 
 # TODO: Write documentation
 # TODO: Test with pexpect
@@ -569,7 +568,8 @@ class Exit(_Command):
 
 class Quit(_Command):
     """
-    A command that forces quitting the application.
+    A command that breaks all the input loops, possibly causing the application
+    to quit.
     """
     def __init__(self, parentmenu, name, helpshort=None,
                  helpfull="Quit the application"):
@@ -579,7 +579,7 @@ class Quit(_Command):
         if len(args) > 0:
             print('Unrecognized arguments:', *args)
         else:
-            sys.exit()
+            self.parentmenu.break_loops(True)
 
 
 class CMenuError(Exception):
