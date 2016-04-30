@@ -161,7 +161,7 @@ class _Command:
 class _Menu(_Command):
     HELP_INDENT = 2
     HELP_SPACING = 4
-    EndLoops = type('EndLoops', (Exception, ), {})
+    BreakLoops = type('BreakLoops', (Exception, ), {})
 
     def __init__(self, parentmenu, name, helpshort, helpfull, prompt=INHERIT):
         super().__init__(parentmenu, name, helpshort, helpfull)
@@ -202,15 +202,18 @@ class _Menu(_Command):
         def inner(self, *args, **kwargs):
             try:
                 func(self, *args, **kwargs)
-            except self.EndLoops as exc:
+            except self.BreakLoops as exc:
                 if self.parentmenu:
-                    if exc.args[0] < 2:
+                    if exc.args[0] is True:
+                        # True ends all the loops
+                        raise self.BreakLoops(True)
+                    elif exc.args[0] > 1:
+                        raise self.BreakLoops(exc.args[0] - 1)
+                    else:
                         # Always reset the completer here because it depends on
                         # each (sub)menu
                         readline.set_completer(
                                             self.parentmenu.completer.complete)
-                    else:
-                        raise self.EndLoops(exc.args[0] - 1)
         return inner
 
     @_loop
@@ -252,6 +255,9 @@ class _Menu(_Command):
         else:
             raise InsufficientTestCommands()
 
+    def break_loops(self, N=1):
+        raise self.BreakLoops(N)
+
     def run_line(self, cmdline):
         if not cmdline:
             self.on_empty_line()
@@ -284,7 +290,7 @@ class _Menu(_Command):
 
     def on_ambiguous_command(self, cmdmatches, cmdprefix, *args):
         # TODO: Fill the next input with cmdline (maybe raise a special
-        #       exception, similar to the EndLoops, that is used to prefill
+        #       exception, similar to the BreakLoops, that is used to prefill
         #       the next input)
         print('Ambiguous command:', cmdprefix,
               '[' + ','.join(cmd.name for cmd in cmdmatches) + ']')
@@ -558,7 +564,7 @@ class Exit(_Command):
         if len(args) > 0:
             print('Unrecognized arguments:', *args)
         else:
-            raise self.parentmenu.EndLoops(1)
+            self.parentmenu.break_loops(1)
 
 
 class Quit(_Command):
