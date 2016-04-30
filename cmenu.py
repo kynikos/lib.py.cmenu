@@ -523,6 +523,7 @@ class LineEditor(_Command):
     """
     def __init__(self, parentmenu, name, load_str, save_str, helpshort=None,
                  helpfull=None):
+        helpfull = helpfull or load_str
         super().__init__(parentmenu, name, helpshort, helpfull)
         self.load_str = load_str
         self.save_str = save_str
