@@ -547,7 +547,7 @@ class RunScript(_Command):
             else:
                 with script:
                     for line in script:
-                        self.parentmenu.onecmd(line)
+                        self.parentmenu.run_line(line)
 
 
 class Exit(_Command):
