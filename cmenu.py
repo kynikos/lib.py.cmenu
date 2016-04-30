@@ -237,9 +237,9 @@ class _Menu(_Command):
     def loop(self, intro=None, cmdlines=[], test=False):
         # At one point in time there were different loop_* methods, but that
         # was giving unexpected behavior when more of them were used after each
-        # other, since they were wrapped by @_loop one by one, and when one was
-        # raising BreakLoops, the following would start, instead of breaking
-        # all the loops
+        # other, since they were wrapped by @_break_protected one by one, and
+        # when one was raising BreakLoops, the following would start, instead
+        # of breaking all the loops
 
         # Store these values as attributes, so that they can be easily passed
         # to the submenus' loops
