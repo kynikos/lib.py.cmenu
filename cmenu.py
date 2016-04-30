@@ -34,7 +34,7 @@ The main differences from cmd.Cmd are:
   that it is unique
 * The automatic help screen shows each command with a short description
 * Dynamic, automatic prompt based on submenus' names
-* Additional methods (e.g. loop_lines and loop_test)
+* Additional or renamed methods, completely different implementation
 * Missing methods (e.g. precmd and postcmd)
 * Uses shlex.split by default
 """
@@ -77,6 +77,16 @@ class DynamicPrompt:
 
     def __str__(self):
         return self.prompt
+
+
+class TestInteract:
+    """
+    An object that allows pausing the execution of test commands and ask for
+    interactive user input.
+    """
+    def __init__(self, repeat=False, message=None):
+        self.repeat = repeat
+        self.message = message
 
 
 class _Completer:
@@ -161,6 +171,7 @@ class _Menu(_Command):
     HELP_INDENT = 2
     HELP_SPACING = 4
     BreakLoops = type('BreakLoops', (Exception, ), {})
+    ResumeTests = type('ResumeTests', (Exception, ), {})
 
     def __init__(self, parentmenu, name, helpshort, helpfull, prompt=INHERIT):
         super().__init__(parentmenu, name, helpshort, helpfull)
@@ -197,7 +208,14 @@ class _Menu(_Command):
             return [command for name, command in self.name_to_command.items()
                     if name.startswith(cmdprefix)]
 
-    def _loop(func):
+    # Decorator
+    def _break_protected(func):
+        # At one point in time there were different loop_* methods, see comment
+        # on 'loop', which is why this was designed as a decorator; now this
+        # could be merged into the loop method, but is instead left here in
+        # case some developers wanted to create their loop methods and still
+        # easily retain this functionality
+
         def inner(self, *args, **kwargs):
             try:
                 func(self, *args, **kwargs)
@@ -215,44 +233,48 @@ class _Menu(_Command):
                                             self.parentmenu.completer.complete)
         return inner
 
-    @_loop
-    def loop_input(self):
-        # Always adapt the other self.loop_* methods when making changes to
-        # this one
+    @_break_protected
+    def loop(self, cmdlines=[], test=False):
+        # At one point in time there were different loop_* methods, but that
+        # was giving unexpected behavior when more of them were used after each
+        # other, since they were wrapped by @_loop one by one, and when one was
+        # raising BreakLoops, the following would start, instead of breaking
+        # all the loops
+
+        # Store these values as attributes, so that they can be easily passed
+        # to the submenus' loops
+        # Do *not* reverse loop_cmdlines, since the value is passed between
+        # submenus!
+        self.loop_cmdlines = cmdlines
+        self.loop_test = test
 
         # Always reset the completer here because it depends on each (sub)menu
         readline.set_completer(self.completer.complete)
+
         while True:
-            cmdline = input(self.prompt)
-            self.run_line(cmdline)
-
-    @_loop
-    def loop_lines(self, cmdlines):
-        # Always adapt the other self.loop_* methods when making changes to
-        # this one
-
-        for cmdline in cmdlines:
-            # TODO: Support a cmdline value of True (or another non-string)
-            #       to allow entering a command interactively through a normal
-            #       input prompt; maybe a new special command class should also
-            #       be added to resume the execution of the 'cmdline' list
-            #       (e.g. 'T: resume the testing commands list')
-            self.run_line(cmdline)
-
-    @_loop
-    def loop_test(self, cmdlines):
-        # Always adapt the other self.loop_* methods when making changes to
-        # this one
-
-        # If cmdlines is empty, the final else clause isn't reached
-        if not cmdlines:
-            raise InsufficientTestCommands()
-        for cmdline in cmdlines:
-            # See TODO above in loop_lines
-            print(self.prompt, cmdline, sep='')
-            self.run_line(cmdline)
-        else:
-            raise InsufficientTestCommands()
+            try:
+                cmdline = self.loop_cmdlines.pop(0)
+            except IndexError:
+                if self.loop_test:
+                    raise InsufficientTestCommands()
+                else:
+                    cmdline = input(self.prompt)
+            else:
+                if isinstance(cmdline, TestInteract):
+                    if cmdline.repeat:
+                        # Instantiate a new TestInteract object without a
+                        # message
+                        self.loop_cmdlines.insert(0, TestInteract(repeat=True))
+                    if cmdline.message:
+                        print(cmdline.message)
+                    cmdline = input(self.prompt)
+                elif self.loop_test:
+                    print(self.prompt, cmdline, sep='')
+            try:
+                self.run_line(cmdline)
+            except self.ResumeTests:
+                if isinstance(self.loop_cmdlines[0], TestInteract):
+                    del self.loop_cmdlines[0]
 
     def break_loops(self, N=1):
         raise self.BreakLoops(N)
@@ -344,7 +366,7 @@ class _Menu(_Command):
         if args:
             self.run_command(*args)
         else:
-            self.loop_input()
+            self.loop(self.parentmenu.loop_cmdlines, self.parentmenu.loop_test)
 
 
 class RootMenu(_Menu):
@@ -548,6 +570,22 @@ class RunScript(_Command):
                 with script:
                     for line in script:
                         self.parentmenu.run_line(line)
+
+
+class ResumeTest(_Command):
+    """
+    A command that resumes the automatic execution of test commands after being
+    interrupted to ask for user input.
+    """
+    def __init__(self, parentmenu, name, helpshort=None,
+                 helpfull="Resume testing"):
+        super().__init__(parentmenu, name, helpshort, helpfull)
+
+    def execute(self, *args):
+        if len(args) > 0:
+            print('Unrecognized arguments:', *args)
+        else:
+            raise self.parentmenu.ResumeTests()
 
 
 class Exit(_Command):
