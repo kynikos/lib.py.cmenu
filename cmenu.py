@@ -225,21 +225,30 @@ class _Menu(_Command):
         # case somebody wanted to create their loop methods and still easily
         # retain this functionality
 
+        def except_(self, N):
+            if self.parentmenu:
+                if N is True:
+                    # True ends all the loops
+                    raise self.BreakLoops(True)
+                elif N > 1:
+                    raise self.BreakLoops(N - 1)
+                else:
+                    # Always reset the completer here because it depends on
+                    # each (sub)menu
+                    readline.set_completer(
+                                        self.parentmenu.completer.complete)
+
         def inner(self, *args, **kwargs):
             try:
                 func(self, *args, **kwargs)
             except self.BreakLoops as exc:
-                if self.parentmenu:
-                    if exc.args[0] is True:
-                        # True ends all the loops
-                        raise self.BreakLoops(True)
-                    elif exc.args[0] > 1:
-                        raise self.BreakLoops(exc.args[0] - 1)
-                    else:
-                        # Always reset the completer here because it depends on
-                        # each (sub)menu
-                        readline.set_completer(
-                                            self.parentmenu.completer.complete)
+                except_(self, exc.args[0])
+            except EOFError:
+                # Raised for example when pressing Ctrl+d
+                # Pressing Ctrl+d doesn't break the line apparently
+                print()
+                except_(self, 1)
+
         return inner
 
     @_break_protected
