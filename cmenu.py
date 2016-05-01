@@ -39,7 +39,14 @@ The main differences from cmd.Cmd are:
 * Uses shlex.split by default
 """
 
-SPLIT_ARGS = shlex.split
+
+def SPLIT_ARGS(*args, **kwargs):
+    try:
+        return shlex.split(*args, **kwargs)
+    except ValueError as exc:
+        # This can happen for example if there are unclosed quotes
+        raise BadCommandError(*exc.args)
+
 READLINE_INIT = """
 tab: complete
 """
@@ -102,6 +109,8 @@ class _Completer:
         line = readline.get_line_buffer()
         if line != self.line:
             self.line = line
+            # There shouldn't be the need to protect SPLIT_ARGS from
+            # BadCommandError here
             sp_args = SPLIT_ARGS(line)
             rl_begidx = readline.get_begidx()
             rl_endidx = readline.get_endidx()
@@ -287,8 +296,12 @@ class _Menu(_Command):
         if not cmdline:
             self.on_empty_line()
         else:
-            cmdprefix, *args = SPLIT_ARGS(cmdline)
-            self.run_command(cmdprefix, *args)
+            try:
+                cmdprefix, *args = SPLIT_ARGS(cmdline)
+            except BadCommandError as exc:
+                print('Bad command:', exc)
+            else:
+                self.run_command(cmdprefix, *args)
 
     def run_command(self, cmdprefix, *args):
         self._run_command('execute', cmdprefix, *args)
@@ -413,6 +426,7 @@ class Alias(_Command):
                  helpfull=None):
         helpfull = helpfull or "Alias <{}>".format(alias)
         super().__init__(parentmenu, name, helpshort, helpfull)
+        # Note that SPLIT_ARGS can raise BadCommandError
         self.alias = SPLIT_ARGS(alias)
 
     def execute(self, *args):
@@ -627,6 +641,10 @@ class Quit(_Command):
 
 
 class CMenuError(Exception):
+    pass
+
+
+class BadCommandError(CMenuError):
     pass
 
 
