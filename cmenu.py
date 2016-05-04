@@ -123,7 +123,8 @@ class _Completer:
 
 
 class _Command:
-    def __init__(self, parentmenu, name, helpshort, helpfull):
+    def __init__(self, parentmenu, name, helpshort, helpfull,
+                 accepted_args=[]):
         self.parentmenu = parentmenu
         self.name = name
 
@@ -142,6 +143,8 @@ class _Command:
             else:
                 self.helpshort = ""
 
+        self.accepted_args = accepted_args
+
         if parentmenu:
             if name not in self.parentmenu.name_to_command:
                 self.parentmenu.name_to_command[name] = self
@@ -158,7 +161,34 @@ class _Command:
         It is necessary to return a 'list', i.e. not a tuple or other
         sequences.
         """
-        return []
+        # TODO: Optionally check that arguments are not repeated (i.e. exclude
+        #       them from the possible matches if they are already in the
+        #       command line)
+        # TODO: Optionally limit the number of arguments that are accepted (and
+        #       thus completed here)
+        if len(sp_args) == 0 or not line.endswith(sp_args[-1]):
+            # if line.endswith(sp_args[-1]) is False, it means that the last
+            # sp_args is already complete
+            return self.accepted_args
+        else:
+            matches = []
+            for arg in self.accepted_args:
+                if arg.startswith(sp_args[-1]):
+                    matches.append(arg)
+            if len(matches) == 1:
+                # In general, SPLIT_ARGS and readline use different word
+                #  delimiters, see e.g. the docs for
+                #  readline.get_completer_delims()
+                # If for example there's a 'foo-bar' argument, SPLIT_ARGS sees
+                #  it as a single word, but readline by default will split it
+                #  in two words, 'foo' and 'bar', and if 'foo-b' is entered in
+                #  the command line, and Tab is pressed, the word will be
+                #  completed as 'foo-bfoo-bar', unless we compensate here by
+                #  subtracting the rl_prefix from the found match
+                sub = len(sp_args[-1]) - len(rl_prefix)
+                return [matches[0][sub:]]
+            else:
+                return matches
 
     def help(self, *args):
         """
@@ -516,9 +546,10 @@ class Action(_Command):
     A command that executes a function.
     """
     def __init__(self, parentmenu, name, execute, helpshort=None,
-                 helpfull=None):
+                 helpfull=None, accepted_args=[]):
         helpfull = helpfull or execute
-        super().__init__(parentmenu, name, helpshort, helpfull)
+        super().__init__(parentmenu, name, helpshort, helpfull,
+                         accepted_args=accepted_args)
         self.execute = execute
 
 
@@ -526,7 +557,8 @@ class Question(_Command):
     """
     A command that prompts the user for some input text.
     """
-    def __init__(self, parentmenu, name, helpshort=None, helpfull=None):
+    def __init__(self, parentmenu, name, helpshort=None, helpfull=None,
+                 accepted_args=[]):
         # TODO: Implement
         raise NotImplementedError()
 
@@ -535,7 +567,8 @@ class Choice(_Command):
     """
     A command that prompts the user to choose from a set of answers.
     """
-    def __init__(self, parentmenu, name, helpshort=None, helpfull=None):
+    def __init__(self, parentmenu, name, helpshort=None, helpfull=None,
+                 accepted_args=[]):
         # TODO: Implement
         raise NotImplementedError()
 
@@ -545,9 +578,10 @@ class LineEditor(_Command):
     A command that presents an editable string of text.
     """
     def __init__(self, parentmenu, name, load_str, save_str, helpshort=None,
-                 helpfull=None):
+                 helpfull=None, accepted_args=[]):
         helpfull = helpfull or load_str
-        super().__init__(parentmenu, name, helpshort, helpfull)
+        super().__init__(parentmenu, name, helpshort, helpfull,
+                         accepted_args=accepted_args)
         self.load_str = load_str
         self.save_str = save_str
 
@@ -573,7 +607,8 @@ class TextEditor(_Command):
     """
     A command that opens text in an external editor.
     """
-    def __init__(self, parentmenu, name, helpshort=None, helpfull=None):
+    def __init__(self, parentmenu, name, helpshort=None, helpfull=None,
+                 accepted_args=[]):
         # TODO: Implement
         raise NotImplementedError()
 
@@ -582,8 +617,10 @@ class RunScript(_Command):
     """
     A command that runs a series of commands from a script.
     """
-    def __init__(self, parentmenu, name, helpshort=None, helpfull=None):
-        super().__init__(parentmenu, name, helpshort, helpfull)
+    def __init__(self, parentmenu, name, helpshort=None, helpfull=None,
+                 accepted_args=[]):
+        super().__init__(parentmenu, name, helpshort, helpfull,
+                         accepted_args=accepted_args)
 
     def execute(self, *args):
         if len(args) == 0:
@@ -607,8 +644,9 @@ class ResumeTest(_Command):
     interrupted to ask for user input.
     """
     def __init__(self, parentmenu, name, helpshort=None,
-                 helpfull="Resume testing"):
-        super().__init__(parentmenu, name, helpshort, helpfull)
+                 helpfull="Resume testing", accepted_args=[]):
+        super().__init__(parentmenu, name, helpshort, helpfull,
+                         accepted_args=accepted_args)
 
     def execute(self, *args):
         if len(args) > 0:
@@ -623,8 +661,9 @@ class Exit(_Command):
     or quitting the application if run from the root menu.
     """
     def __init__(self, parentmenu, name, helpshort=None,
-                 helpfull="Exit the menu"):
-        super().__init__(parentmenu, name, helpshort, helpfull)
+                 helpfull="Exit the menu", accepted_args=[]):
+        super().__init__(parentmenu, name, helpshort, helpfull,
+                         accepted_args=accepted_args)
 
     def execute(self, *args):
         if len(args) > 0:
@@ -639,8 +678,9 @@ class Quit(_Command):
     to quit.
     """
     def __init__(self, parentmenu, name, helpshort=None,
-                 helpfull="Quit the application"):
-        super().__init__(parentmenu, name, helpshort, helpfull)
+                 helpfull="Quit the application", accepted_args=[]):
+        super().__init__(parentmenu, name, helpshort, helpfull,
+                         accepted_args=accepted_args)
 
     def execute(self, *args):
         if len(args) > 0:
