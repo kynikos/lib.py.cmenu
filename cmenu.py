@@ -489,19 +489,17 @@ class Alias(_CommandWithFlags):
         self.parentmenu.run_command(*self.alias, *args)
 
 
-class AliasSet(_CommandWithFlags):
+class AliasConfig(_CommandWithFlags):
     """
-    A command that sets a command alias.
+    A command that manages command alias.
     """
     def __init__(self, parentmenu, name, aliasmenu, helpshort=None,
                  helpfull=None):
-        super().__init__(parentmenu, name, helpshort, helpfull)
+        super().__init__(parentmenu, name, helpshort, helpfull,
+                         accepted_flags=['set', 'unset', 'unset-all'])
         self.aliasmenu = aliasmenu
 
-    def execute(self, *args):
-        if len(args) != 2:
-            print('Wrong syntax')
-            return False
+    def _set(self, *args):
         try:
             command = self.aliasmenu.name_to_command[args[0]]
         except KeyError:
@@ -514,20 +512,7 @@ class AliasSet(_CommandWithFlags):
                 return False
         Alias(self.aliasmenu, args[0], args[1])
 
-
-class AliasUnset(_CommandWithFlags):
-    """
-    A command that unsets a command alias.
-    """
-    def __init__(self, parentmenu, name, aliasmenu, helpshort=None,
-                 helpfull=None):
-        super().__init__(parentmenu, name, helpshort, helpfull)
-        self.aliasmenu = aliasmenu
-
-    def execute(self, *args):
-        if len(args) != 1:
-            print('Wrong syntax')
-            return False
+    def _unset(self, *args):
         try:
             command = self.aliasmenu.name_to_command[args[0]]
         except KeyError:
@@ -538,24 +523,25 @@ class AliasUnset(_CommandWithFlags):
             else:
                 command.uninstall()
 
-
-class AliasUnsetAll(_CommandWithFlags):
-    """
-    A command that unsets all command aliases.
-    """
-    def __init__(self, parentmenu, name, aliasmenu, helpshort=None,
-                 helpfull=None):
-        super().__init__(parentmenu, name, helpshort, helpfull)
-        self.aliasmenu = aliasmenu
-
-    def execute(self, *args):
-        if len(args) > 0:
-            print('Wrong syntax')
-            return False
+    def _unset_all(self, *args):
         # list name_to_command because this loop is modifying it
         for command in list(self.aliasmenu.name_to_command.values()):
             if isinstance(command, Alias):
                 command.uninstall()
+
+    def execute(self, *args):
+        try:
+            args0 = args[0]
+        except IndexError:
+            pass
+        else:
+            if args0 == 'set' and len(args) == 3:
+                return self._set(args[1], args[2])
+            elif args0 == 'unset' and len(args) == 2:
+                return self._unset(args[1])
+            elif args0 == 'unset-all' and len(args) == 1:
+                return self._unset_all()
+        print('Wrong syntax')
 
 
 class Action(_CommandWithFlags):
