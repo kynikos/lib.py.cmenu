@@ -576,25 +576,17 @@ class Choice(_CommandWithFlags):
         raise NotImplementedError()
 
 
-class LineEditor(_CommandWithFlags):
-    """
-    A command that presents an editable string of text.
-    """
+class _LineEditor(_CommandWithFlags):
     def __init__(self, parentmenu, name, load_str, save_str, helpshort=None,
-                 helpfull=None):
+                 helpfull=None, accepted_flags=[]):
         helpfull = helpfull or load_str
-        super().__init__(parentmenu, name, helpshort, helpfull)
+        super().__init__(parentmenu, name, helpshort, helpfull,
+                         accepted_flags=accepted_flags)
         self.load_str = load_str
         self.save_str = save_str
 
-    def execute(self, *args):
-        if len(args) > 1:
-            print('Too many arguments')
-            return False
-
-        if len(args) == 1:
-            newstr = args[0]
-        else:
+    def _edit(self, newstr=None):
+        if newstr is None:
             # From http://stackoverflow.com/a/2533142/645498
             readline.set_startup_hook(lambda: readline.insert_text(
                                                             self.load_str()))
@@ -603,6 +595,53 @@ class LineEditor(_CommandWithFlags):
             finally:
                 readline.set_startup_hook()
         self.save_str(newstr)
+
+
+class LineEditor(_LineEditor):
+    """
+    A command that presents an editable string of text.
+    """
+    def __init__(self, parentmenu, name, load_str, save_str, helpshort=None,
+                 helpfull=None):
+        super().__init__(parentmenu, name, load_str, save_str, helpshort,
+                         helpfull)
+
+    def execute(self, *args):
+        if len(args) > 1:
+            print('Too many arguments')
+            return False
+
+        if len(args) == 1:
+            self._edit(args[0])
+        else:
+            self._edit()
+
+
+class LineEditorDefault(_LineEditor):
+    """
+    A command that presents an editable string of text or the possibility to
+    restore a default value.
+    """
+    def __init__(self, parentmenu, name, load_str, save_str, restore_str,
+                 helpshort=None, helpfull=None):
+        super().__init__(parentmenu, name, load_str, save_str, helpshort,
+                         helpfull, accepted_flags=['change', 'restore'])
+        self.restore_str = restore_str
+
+    def execute(self, *args):
+        try:
+            args0 = args[0]
+        except IndexError:
+            return self._edit()
+        else:
+            if args0 == 'change':
+                if len(args) == 1:
+                    return self._edit()
+                elif len(args) == 2:
+                    return self._edit(args[1])
+            elif args0 == 'restore' and len(args) == 1:
+                return self.restore_str()
+        print('Wrong syntax')
 
 
 class TextEditor(_CommandWithFlags):
