@@ -292,7 +292,8 @@ class _Menu(_Command):
                 except_(self, exc.args[0])
             except EOFError:
                 # Raised for example when pressing Ctrl+d
-                # Pressing Ctrl+d doesn't break the line apparently
+                # Pressing Ctrl+d doesn't break the line apparently, so
+                # explicitly print a line break
                 print()
                 except_(self, 1)
 
