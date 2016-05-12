@@ -75,6 +75,12 @@ class MessagesDefault:
     alias_does_not_exist = 'The alias does not exist'
     alias_overrides_builtin_command = 'Cannot override built-in commands'
 
+    # Question
+    question_invalid_answer = 'Invalid answer'
+
+    # Choice
+    choice_invalid = 'Invalid choice'
+
     # RunScript
     runscript_cannot_open_file = 'The file cannot be opened:'
     runscript_filename_not_specified = 'File name not specified'
@@ -590,24 +596,75 @@ class Action(_CommandWithFlags):
         self.execute = execute
 
 
-class Question(_CommandWithFlags):
+class _Question(_CommandWithFlags):
+    def __init__(self, parentmenu, name, question, validate,
+                 helpshort=None, helpfull=None, accepted_flags=[]):
+        super().__init__(parentmenu, name, helpshort, helpfull,
+                         accepted_flags=accepted_flags)
+        self.question = question
+        self.validate = validate
+
+    def execute(self, *args):
+        if len(args) > 1:
+            print(self.messages.command_expects_less_arguments)
+            return False
+
+        if len(args) == 1:
+            if not self.validate(args[0]):
+                print(self.invalid_message)
+        else:
+            while True:
+                answer = input(self.question)
+                if self.validate(answer):
+                    break
+                print(self.invalid_message)
+
+
+class Question(_Question):
     """
     A command that prompts the user for some input text.
     """
-    def __init__(self, parentmenu, name, helpshort=None, helpfull=None,
-                 accepted_flags=[]):
-        # TODO: Implement
-        raise NotImplementedError()
+    def __init__(self, parentmenu, name, question, validate, helpshort=None,
+                 helpfull=None, accepted_flags=[]):
+        helpfull = helpfull or validate
+        super().__init__(parentmenu, name, question, validate, helpshort,
+                         helpfull, accepted_flags=accepted_flags)
+        self.invalid_message = self.messages.question_invalid_answer
 
 
-class Choice(_CommandWithFlags):
+class Choice(_Question):
     """
     A command that prompts the user to choose from a set of answers.
     """
-    def __init__(self, parentmenu, name, helpshort=None, helpfull=None,
+    def __init__(self, parentmenu, name, prompt, continue_,
+                 retval_to_choices={True: ('', 'y', 'yes', 'on', 'ok',
+                                           'enable', 'enabled', '1'),
+                                    False: ('n', 'no', 'off', 'disable',
+                                            'disabled', '0')},
+                 case_sensitive=False, helpshort=None, helpfull=None,
                  accepted_flags=[]):
-        # TODO: Implement
-        raise NotImplementedError()
+        helpfull = helpfull or continue_
+        super().__init__(parentmenu, name, prompt, self._validate, helpshort,
+                         helpfull, accepted_flags=accepted_flags)
+        self.invalid_message = self.messages.choice_invalid
+        if case_sensitive:
+            self.retval_to_choices = retval_to_choices
+        else:
+            self.retval_to_choices = {}
+            for retval, choices in retval_to_choices.items():
+                self.retval_to_choices[retval] = [choice.lower()
+                                                  for choice in choices]
+        self.continue_ = continue_
+        self.case_sensitive = case_sensitive
+
+    def _validate(self, choice):
+        if not self.case_sensitive:
+            choice = choice.lower()
+        for retval, choices in self.retval_to_choices.items():
+            if choice in choices:
+                self.continue_(retval)
+                return True
+        return False
 
 
 class _LineEditor(_CommandWithFlags):
