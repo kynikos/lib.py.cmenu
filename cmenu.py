@@ -62,6 +62,24 @@ def configure_readline():
         readline.parse_and_bind(line)
 
 
+class MessagesDefault:
+    command_does_not_accept_arguments = 'No arguments accepted'
+    command_expects_less_arguments = 'Too many arguments'
+    command_has_bad_arguments = 'Bad arguments'
+    command_has_bad_syntax = 'Bad command:'
+    command_is_ambiguous = 'Ambiguous command:'
+    command_is_not_defined = 'Unrecognized command:'
+
+    # Alias
+    alias_cannot_unset_builtin_command = 'Cannot remove built-in commands'
+    alias_does_not_exist = 'The alias does not exist'
+    alias_overrides_builtin_command = 'Cannot override built-in commands'
+
+    # RunScript
+    runscript_cannot_open_file = 'The file cannot be opened:'
+    runscript_filename_not_specified = 'File name not specified'
+
+
 class DynamicPrompt:
     """
     A _Menu prompt that automatically shows the path of submenus.
@@ -147,6 +165,7 @@ class _Command:
                 self.parentmenu.name_to_command[name] = self
             else:
                 raise DuplicatedCommandNameError(name)
+            self.messages = self.parentmenu.messages
 
     def uninstall(self):
         del self.parentmenu.name_to_command[self.name]
@@ -165,7 +184,7 @@ class _Command:
         Can be overridden (and for example _Menu does).
         """
         if args:
-            print('Invalid arguments:', *args)
+            print(self.messages.command_does_not_accept_arguments)
         else:
             print(self.helpfull)
 
@@ -356,7 +375,7 @@ class _Menu(_Command):
             try:
                 cmdprefix, *args = SPLIT_ARGS(cmdline)
             except BadCommandError as exc:
-                print('Bad command:', exc)
+                print(self.messages.command_has_bad_syntax, exc)
             else:
                 self.run_command(cmdprefix, *args)
 
@@ -381,13 +400,13 @@ class _Menu(_Command):
         pass
 
     def on_bad_command(self, cmdprefix, *args):
-        print('Unrecognized command:', cmdprefix)
+        print(self.messages.command_is_not_defined, cmdprefix)
 
     def on_ambiguous_command(self, cmdmatches, cmdprefix, *args):
         # TODO: Fill the next input with cmdline (maybe raise a special
         #       exception, similar to the BreakLoops, that is used to prefill
         #       the next input)
-        print('Ambiguous command:', cmdprefix,
+        print(self.messages.command_is_ambiguous, cmdprefix,
               '[' + ','.join(cmd.name for cmd in cmdmatches) + ']')
 
     def complete(self, sp_args, line, rl_prefix, rl_begidx, rl_endidx):
@@ -449,7 +468,9 @@ class RootMenu(_Menu):
     The class to be used for the main menu of an application.
     """
     def __init__(self, name, helpshort=None, helpfull=None,
-                 prompt=DynamicPrompt, readlinecfg=configure_readline):
+                 prompt=DynamicPrompt, readlinecfg=configure_readline,
+                 messages=MessagesDefault()):
+        self.messages = messages
         readlinecfg()
         super().__init__(None, name, helpshort, helpfull, prompt)
 
@@ -509,7 +530,7 @@ class AliasConfig(_CommandWithFlags):
             if isinstance(command, Alias):
                 command.uninstall()
             else:
-                print('Cannot override built-in commands')
+                print(self.messages.alias_overrides_builtin_command)
                 return False
         Alias(self.aliasmenu, args[0], args[1])
 
@@ -517,10 +538,10 @@ class AliasConfig(_CommandWithFlags):
         try:
             command = self.aliasmenu.name_to_command[args[0]]
         except KeyError:
-            print('The alias does not exist')
+            print(self.messages.alias_does_not_exist)
         else:
             if not isinstance(command, Alias):
-                print('Cannot remove built-in commands')
+                print(self.messages.alias_cannot_unset_builtin_command)
             else:
                 command.uninstall()
 
@@ -542,7 +563,7 @@ class AliasConfig(_CommandWithFlags):
                 return self._unset(args[1])
             elif args0 == 'unset-all' and len(args) == 1:
                 return self._unset_all()
-        print('Wrong syntax')
+        print(self.messages.command_has_bad_arguments)
 
 
 class Action(_CommandWithFlags):
@@ -609,7 +630,7 @@ class LineEditor(_LineEditor):
 
     def execute(self, *args):
         if len(args) > 1:
-            print('Too many arguments')
+            print(self.messages.command_expects_less_arguments)
             return False
 
         if len(args) == 1:
@@ -642,7 +663,7 @@ class LineEditorDefault(_LineEditor):
                     return self._edit(args[1])
             elif args0 == 'restore' and len(args) == 1:
                 return self.restore_str()
-        print('Wrong syntax')
+        print(self.messages.command_has_bad_arguments)
 
 
 class TextEditor(_CommandWithFlags):
@@ -664,14 +685,14 @@ class RunScript(_CommandWithFlags):
 
     def execute(self, *args):
         if len(args) == 0:
-            print('File name not specified')
+            print(self.messages.runscript_filename_not_specified)
         elif len(args) > 1:
-            print('Too many arguments')
+            print(self.messages.command_expects_less_arguments)
         else:
             try:
                 script = open(args[0], 'r')
             except OSError as exc:
-                print('The file cannot be opened: ' + exc.strerror)
+                print(self.messages.runscript_cannot_open_file, exc.strerror)
             else:
                 with script:
                     for line in script:
@@ -689,7 +710,7 @@ class ResumeTest(_CommandWithFlags):
 
     def execute(self, *args):
         if len(args) > 0:
-            print('Unrecognized arguments:', *args)
+            print(self.messages.command_does_not_accept_arguments)
         else:
             raise self.parentmenu.ResumeTests()
 
@@ -705,7 +726,7 @@ class Exit(_CommandWithFlags):
 
     def execute(self, *args):
         if len(args) > 0:
-            print('Unrecognized arguments:', *args)
+            print(self.messages.command_does_not_accept_arguments)
         else:
             self.parentmenu.break_loops(1)
 
@@ -721,7 +742,7 @@ class Quit(_CommandWithFlags):
 
     def execute(self, *args):
         if len(args) > 0:
-            print('Unrecognized arguments:', *args)
+            print(self.messages.command_does_not_accept_arguments)
         else:
             self.parentmenu.break_loops(True)
 
