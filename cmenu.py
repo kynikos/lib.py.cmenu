@@ -80,6 +80,18 @@ class MessagesDefault:
     runscript_filename_not_specified = 'File name not specified'
 
 
+class MessagesDefaultColorable(MessagesDefault):
+    def __init__(self, prefix, suffix):
+        super().__init__()
+        self.prefix = prefix
+        self.suffix = suffix
+
+    def __getattribute__(self, name):
+        return ''.join(((super().__getattribute__('prefix'),
+                         super().__getattribute__(name),
+                         super().__getattribute__('suffix'))))
+
+
 class DynamicPrompt:
     """
     A _Menu prompt that automatically shows the path of submenus.
