@@ -39,6 +39,11 @@ The main differences from cmd.Cmd are:
 * Uses shlex.split by default
 """
 
+READLINE_INIT = """
+tab: complete
+"""
+INHERIT = object()
+
 
 def SPLIT_ARGS(*args, **kwargs):
     try:
@@ -46,11 +51,6 @@ def SPLIT_ARGS(*args, **kwargs):
     except ValueError as exc:
         # This can happen for example if there are unclosed quotes
         raise BadCommandError(*exc.args)
-
-READLINE_INIT = """
-tab: complete
-"""
-INHERIT = object()
 
 
 def configure_readline():
