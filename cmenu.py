@@ -62,40 +62,57 @@ def configure_readline():
         readline.parse_and_bind(line)
 
 
-class MessagesDefault:
-    command_does_not_accept_arguments = 'No arguments accepted'
-    command_expects_less_arguments = 'Too many arguments'
-    command_has_bad_arguments = 'Bad arguments'
-    command_has_bad_syntax = 'Bad command:'
-    command_is_ambiguous = 'Ambiguous command:'
-    command_is_not_defined = 'Unrecognized command:'
+class _Messages:
+    COMMAND_DOES_NOT_ACCEPT_ARGUMENTS = 'No arguments accepted'
+    COMMAND_EXPECTS_LESS_ARGUMENTS = 'Too many arguments'
+    COMMAND_HAS_BAD_ARGUMENTS = 'Bad arguments'
+    COMMAND_HAS_BAD_SYNTAX = 'Bad command:'
+    COMMAND_IS_AMBIGUOUS = 'Ambiguous command:'
+    COMMAND_IS_NOT_DEFINED = 'Unrecognized command:'
+    ALIAS_CANNOT_UNSET_BUILTIN_COMMAND = 'Cannot remove built-in commands'
+    ALIAS_DOES_NOT_EXIST = 'The alias does not exist'
+    ALIAS_OVERRIDES_BUILTIN_COMMAND = 'Cannot override built-in commands'
+    QUESTION_INVALID_ANSWER = 'Invalid answer'
+    CHOICE_INVALID = 'Invalid choice'
+    RUNSCRIPT_CANNOT_OPEN_FILE = 'The file cannot be opened:'
+    RUNSCRIPT_FILENAME_NOT_SPECIFIED = 'File name not specified'
 
-    # Alias
-    alias_cannot_unset_builtin_command = 'Cannot remove built-in commands'
-    alias_does_not_exist = 'The alias does not exist'
-    alias_overrides_builtin_command = 'Cannot override built-in commands'
+    def _reset(self, prefix='', suffix=''):
+        for attr in ('command_does_not_accept_arguments',
+                     'command_expects_less_arguments',
+                     'command_has_bad_arguments',
+                     'command_has_bad_syntax',
+                     'command_is_ambiguous',
+                     'command_is_not_defined',
+                     'alias_cannot_unset_builtin_command',
+                     'alias_does_not_exist',
+                     'alias_overrides_builtin_command',
+                     'question_invalid_answer',
+                     'choice_invalid',
+                     'runscript_cannot_open_file',
+                     'runscript_filename_not_specified'):
+            setattr(self, attr, getattr(self, attr.upper()).join((prefix,
+                                                                  suffix)))
 
-    # Question
-    question_invalid_answer = 'Invalid answer'
 
-    # Choice
-    choice_invalid = 'Invalid choice'
-
-    # RunScript
-    runscript_cannot_open_file = 'The file cannot be opened:'
-    runscript_filename_not_specified = 'File name not specified'
+class MessagesDefault(_Messages):
+    def __init__(self):
+        super().__init__()
+        self._reset()
 
 
-class MessagesDefaultColorable(MessagesDefault):
+class MessagesColorable(_Messages):
     def __init__(self, prefix, suffix):
         super().__init__()
         self.prefix = prefix
         self.suffix = suffix
+        self.enable_colors()
 
-    def __getattribute__(self, name):
-        return ''.join(((super().__getattribute__('prefix'),
-                         super().__getattribute__(name),
-                         super().__getattribute__('suffix'))))
+    def enable_colors(self):
+        self._reset(self.prefix, self.suffix)
+
+    def disable_colors(self):
+        self._reset()
 
 
 class DynamicPrompt:
