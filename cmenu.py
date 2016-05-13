@@ -115,7 +115,27 @@ class MessagesColorable(_Messages):
         self._reset()
 
 
-class DynamicPrompt:
+class _DynamicPrompt:
+    def __init__(self, menu):
+        self.menu = menu
+
+        self.path = [self.menu.name]
+        parentmenu = self.menu.parentmenu
+        while parentmenu:
+            self.path.append(parentmenu.name)
+            parentmenu = parentmenu.parentmenu
+        self.path.reverse()
+
+    def _reset(self, prefix, separator, suffix):
+        self.prompt = ''.join((prefix,
+                               separator.join(self.path),
+                               suffix))
+
+    def __str__(self):
+        return self.prompt
+
+
+class DynamicPrompt(_DynamicPrompt):
     """
     A _Menu prompt that automatically shows the path of submenus.
     """
@@ -124,19 +144,32 @@ class DynamicPrompt:
     SUFFIX = ') '
 
     def __init__(self, menu):
-        self.menu = menu
+        super().__init__(menu)
+        self._reset(self.PREFIX, self.SEPARATOR, self.SUFFIX)
 
-        path = [self.menu.name]
-        parentmenu = self.menu.parentmenu
-        while parentmenu:
-            path.append(parentmenu.name)
-            parentmenu = parentmenu.parentmenu
-        self.prompt = ''.join((self.PREFIX,
-                               self.SEPARATOR.join(reversed(path)),
-                               self.SUFFIX))
 
-    def __str__(self):
-        return self.prompt
+class DynamicPromptColorable(_DynamicPrompt):
+    """
+    A _Menu prompt that automatically shows the path of submenus, with colors
+    that can be enabled or disabled.
+    """
+    # These must be set by subclassing
+    MON_PREFIX = None
+    MON_SEPARATOR = None
+    MON_PREFIX = None
+    COL_PREFIX = None
+    COL_SEPARATOR = None
+    COL_PREFIX = None
+
+    def __init__(self, menu):
+        super().__init__(menu)
+        self.enable_colors()
+
+    def enable_colors(self):
+        self._reset(self.COL_PREFIX, self.COL_SEPARATOR, self.COL_SUFFIX)
+
+    def disable_colors(self):
+        self._reset(self.MON_PREFIX, self.MON_SEPARATOR, self.MON_SUFFIX)
 
 
 class TestInteract:
@@ -306,6 +339,18 @@ class _Menu(_Command):
 
         self.name_to_command = OrderedDict()
         self.completer = _Completer(self)
+
+    def iter_walk_menus(self):
+        """
+        Useful for example to spread changes to the prompt, e.g. enabling or
+        disabling colors.
+        """
+        yield self
+        for item in self.name_to_command.values():
+            if isinstance(item, _Menu):
+                # "Generator delegation" ;)
+                # https://docs.python.org/3/whatsnew/3.3.html#pep-380
+                yield from item.iter_walk_menus()
 
     def _find_commands(self, cmdprefix):
         try:
