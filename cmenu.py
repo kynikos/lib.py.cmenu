@@ -63,56 +63,43 @@ def configure_readline():
 
 
 class _Messages:
-    COMMAND_DOES_NOT_ACCEPT_ARGUMENTS = 'No arguments accepted'
-    COMMAND_EXPECTS_LESS_ARGUMENTS = 'Too many arguments'
-    COMMAND_HAS_BAD_ARGUMENTS = 'Bad arguments'
-    COMMAND_HAS_BAD_SYNTAX = 'Bad command:'
-    COMMAND_IS_AMBIGUOUS = 'Ambiguous command:'
-    COMMAND_IS_NOT_DEFINED = 'Unrecognized command:'
-    ALIAS_CANNOT_UNSET_BUILTIN_COMMAND = 'Cannot remove built-in commands'
-    ALIAS_DOES_NOT_EXIST = 'The alias does not exist'
-    ALIAS_OVERRIDES_BUILTIN_COMMAND = 'Cannot override built-in commands'
-    QUESTION_INVALID_ANSWER = 'Invalid answer'
-    CHOICE_INVALID = 'Invalid choice'
-    RUNSCRIPT_CANNOT_OPEN_FILE = 'The file cannot be opened:'
-    RUNSCRIPT_FILENAME_NOT_SPECIFIED = 'File name not specified'
-
-    def _reset(self, prefix='', suffix=''):
-        for attr in ('command_does_not_accept_arguments',
-                     'command_expects_less_arguments',
-                     'command_has_bad_arguments',
-                     'command_has_bad_syntax',
-                     'command_is_ambiguous',
-                     'command_is_not_defined',
-                     'alias_cannot_unset_builtin_command',
-                     'alias_does_not_exist',
-                     'alias_overrides_builtin_command',
-                     'question_invalid_answer',
-                     'choice_invalid',
-                     'runscript_cannot_open_file',
-                     'runscript_filename_not_specified'):
-            setattr(self, attr, getattr(self, attr.upper()).join((prefix,
-                                                                  suffix)))
+    command_does_not_accept_arguments = 'No arguments accepted'
+    command_expects_less_arguments = 'Too many arguments'
+    command_has_bad_arguments = 'Bad arguments'
+    command_has_bad_syntax = 'Bad command:'
+    command_is_ambiguous = 'Ambiguous command:'
+    command_is_not_defined = 'Unrecognized command:'
+    alias_cannot_unset_builtin_command = 'Cannot remove built-in commands'
+    alias_does_not_exist = 'The alias does not exist'
+    alias_overrides_builtin_command = 'Cannot override built-in commands'
+    question_invalid_answer = 'Invalid answer'
+    choice_invalid = 'Invalid choice'
+    runscript_cannot_open_file = 'The file cannot be opened:'
+    runscript_filename_not_specified = 'File name not specified'
 
 
 class MessagesDefault(_Messages):
-    def __init__(self):
-        super().__init__()
-        self._reset()
+    def error(self, message, *args):
+        print(message, *args)
 
 
 class MessagesColorable(_Messages):
-    def __init__(self, prefix, suffix):
+    def __init__(self, error_prefix, error_suffix):
         super().__init__()
-        self.prefix = prefix
-        self.suffix = suffix
+        self.error_prefix = error_prefix
+        self.error_suffix = error_suffix
         self.enable_colors()
 
     def enable_colors(self):
-        self._reset(self.prefix, self.suffix)
+        self._error_prefix = self.error_prefix
+        self._error_suffix = self.error_suffix
 
     def disable_colors(self):
-        self._reset()
+        self._error_prefix = ''
+        self._error_suffix = ''
+
+    def error(self, message, *args):
+        print(message.join((self._error_prefix, self._error_suffix)), *args)
 
 
 class _DynamicPrompt:
@@ -252,7 +239,8 @@ class _Command:
         Can be overridden (and for example _Menu does).
         """
         if args:
-            print(self.messages.command_does_not_accept_arguments)
+            self.messages.error(
+                            self.messages.command_does_not_accept_arguments)
         else:
             print(self.helpfull)
 
@@ -455,7 +443,7 @@ class _Menu(_Command):
             try:
                 cmdprefix, *args = SPLIT_ARGS(cmdline)
             except BadCommandError as exc:
-                print(self.messages.command_has_bad_syntax, exc)
+                self.messages.error(self.messages.command_has_bad_syntax, exc)
             else:
                 self.run_command(cmdprefix, *args)
 
@@ -480,14 +468,14 @@ class _Menu(_Command):
         pass
 
     def on_bad_command(self, cmdprefix, *args):
-        print(self.messages.command_is_not_defined, cmdprefix)
+        self.messages.error(self.messages.command_is_not_defined, cmdprefix)
 
     def on_ambiguous_command(self, cmdmatches, cmdprefix, *args):
         # TODO: Fill the next input with cmdline (maybe raise a special
         #       exception, similar to the BreakLoops, that is used to prefill
         #       the next input)
-        print(self.messages.command_is_ambiguous, cmdprefix,
-              '[' + ','.join(cmd.name for cmd in cmdmatches) + ']')
+        self.messages.error(self.messages.command_is_ambiguous,
+                            *[cmd.name for cmd in cmdmatches])
 
     def complete(self, sp_args, line, rl_prefix, rl_begidx, rl_endidx):
         # It's necessary to return a 'list', not just any sequence type
@@ -610,7 +598,8 @@ class AliasConfig(_CommandWithFlags):
             if isinstance(command, Alias):
                 command.uninstall()
             else:
-                print(self.messages.alias_overrides_builtin_command)
+                self.messages.error(
+                                self.messages.alias_overrides_builtin_command)
                 return False
         Alias(self.aliasmenu, args[0], args[1])
 
@@ -618,10 +607,11 @@ class AliasConfig(_CommandWithFlags):
         try:
             command = self.aliasmenu.name_to_command[args[0]]
         except KeyError:
-            print(self.messages.alias_does_not_exist)
+            self.messages.error(self.messages.alias_does_not_exist)
         else:
             if not isinstance(command, Alias):
-                print(self.messages.alias_cannot_unset_builtin_command)
+                self.messages.error(
+                            self.messages.alias_cannot_unset_builtin_command)
             else:
                 command.uninstall()
 
@@ -643,7 +633,7 @@ class AliasConfig(_CommandWithFlags):
                 return self._unset(args[1])
             elif args0 == 'unset-all' and len(args) == 1:
                 return self._unset_all()
-        print(self.messages.command_has_bad_arguments)
+        self.messages.error(self.messages.command_has_bad_arguments)
 
 
 class Action(_CommandWithFlags):
@@ -668,18 +658,18 @@ class _Question(_CommandWithFlags):
 
     def execute(self, *args):
         if len(args) > 1:
-            print(self.messages.command_expects_less_arguments)
+            self.messages.error(self.messages.command_expects_less_arguments)
             return False
 
         if len(args) == 1:
             if not self.validate(args[0]):
-                print(self.invalid_message)
+                self.messages.error(self.invalid_message)
         else:
             while True:
                 answer = input(self.question)
                 if self.validate(answer):
                     break
-                print(self.invalid_message)
+                self.messages.error(self.invalid_message)
 
 
 class Question(_Question):
@@ -761,7 +751,7 @@ class LineEditor(_LineEditor):
 
     def execute(self, *args):
         if len(args) > 1:
-            print(self.messages.command_expects_less_arguments)
+            self.messages.error(self.messages.command_expects_less_arguments)
             return False
 
         if len(args) == 1:
@@ -794,7 +784,7 @@ class LineEditorDefault(_LineEditor):
                     return self._edit(args[1])
             elif args0 == 'restore' and len(args) == 1:
                 return self.restore_str()
-        print(self.messages.command_has_bad_arguments)
+        self.messages.error(self.messages.command_has_bad_arguments)
 
 
 class TextEditor(_CommandWithFlags):
@@ -816,14 +806,15 @@ class RunScript(_CommandWithFlags):
 
     def execute(self, *args):
         if len(args) == 0:
-            print(self.messages.runscript_filename_not_specified)
+            self.messages.error(self.messages.runscript_filename_not_specified)
         elif len(args) > 1:
-            print(self.messages.command_expects_less_arguments)
+            self.messages.error(self.messages.command_expects_less_arguments)
         else:
             try:
                 script = open(args[0], 'r')
             except OSError as exc:
-                print(self.messages.runscript_cannot_open_file, exc.strerror)
+                self.messages.error(
+                        self.messages.runscript_cannot_open_file, exc.strerror)
             else:
                 with script:
                     for line in script:
@@ -841,7 +832,8 @@ class ResumeTest(_CommandWithFlags):
 
     def execute(self, *args):
         if len(args) > 0:
-            print(self.messages.command_does_not_accept_arguments)
+            self.messages.error(
+                            self.messages.command_does_not_accept_arguments)
         else:
             raise self.parentmenu.ResumeTests()
 
@@ -857,7 +849,8 @@ class Exit(_CommandWithFlags):
 
     def execute(self, *args):
         if len(args) > 0:
-            print(self.messages.command_does_not_accept_arguments)
+            self.messages.error(
+                            self.messages.command_does_not_accept_arguments)
         else:
             self.parentmenu.break_loops(1)
 
@@ -873,7 +866,8 @@ class Quit(_CommandWithFlags):
 
     def execute(self, *args):
         if len(args) > 0:
-            print(self.messages.command_does_not_accept_arguments)
+            self.messages.error(
+                            self.messages.command_does_not_accept_arguments)
         else:
             self.parentmenu.break_loops(True)
 
