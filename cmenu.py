@@ -570,7 +570,7 @@ class Alias(_CommandWithFlags):
     """
     def __init__(self, parentmenu, name, alias, helpshort=None,
                  helpfull=None):
-        helpfull = helpfull or "Alias <{}>".format(alias)
+        helpfull = helpfull or "Alias for <{}>".format(alias)
         super().__init__(parentmenu, name, helpshort, helpfull)
         # Note that SPLIT_ARGS can raise BadCommandError
         self.alias = SPLIT_ARGS(alias)
